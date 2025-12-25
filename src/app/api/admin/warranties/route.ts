@@ -32,13 +32,9 @@ export async function GET(request: NextRequest) {
 
     const warranties = await selectQuery<WarrantyRow>(
       `SELECT 
-        w.id, w.external_id, w.purchase_date, w.product_description,
-        w.warranty_card_number, w.invoice_file_url,
-        w.warranty_card_file_url, w.registration_date,
-        c.name as customer_name, c.email as customer_email, c.mobile as customer_mobile,
+        w.*,
         ws.name as status_name
       FROM warranties w
-      JOIN customers c ON w.customer_id = c.id
       JOIN warranty_statuses ws ON w.warranty_status_id = ws.id
       WHERE w.is_deleted = FALSE
       ORDER BY w.registration_date DESC`

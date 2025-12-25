@@ -1,7 +1,9 @@
-import type { Metadata } from "next";
+"use client";
 import { Mulish } from "next/font/google";
 import "./globals.css";
-import { Toaster } from "@/components/ui/sonner";
+import Navbar from "@/components/Navbar";
+import { usePathname } from "next/navigation";
+
 
 const mulish = Mulish({
   subsets: ["latin"],
@@ -10,22 +12,27 @@ const mulish = Mulish({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: "IKIGAI Travel Gear - Warranty Management",
-  description: "3-Year Domestic Warranty Registration & Claims",
-};
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={mulish.variable} suppressHydrationWarning>
-      <body suppressHydrationWarning>
+     <html lang="en" className={mulish.variable} suppressHydrationWarning>
+      <body>
+        <NavbarWrapper />
         {children}
-        <Toaster />
       </body>
     </html>
   );
+}
+
+// Client component to check pathname
+function NavbarWrapper() {
+  "use client";
+  const pathname = usePathname();
+  
+  // Hide navbar on admin routes
+  const isAdminRoute = pathname?.startsWith("/admin");
+  
+  if (isAdminRoute) return null;
+  
+  return <Navbar />;
 }

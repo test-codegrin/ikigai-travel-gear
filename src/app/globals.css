@@ -17,7 +17,7 @@
   --accent-foreground: 0 0% 9%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 98%;
-  --border: 0 0% 90%;
+  --border: 0 0% 80%;
   --input: 0 0% 90%;
   --ring: 24 89% 66%;
   --radius: 0.5rem;
@@ -26,6 +26,47 @@
   --chart-3: 197 37% 24%;
   --chart-4: 43 74% 66%;
   --chart-5: 27 87% 67%;
+}
+
+@theme inline {
+
+  --color-primary: #f29559;
+  --color-primary-foreground: #fff;
+  
+  --color-background: #ffffff;
+  --color-foreground: #000000;
+  --color-card: #ffffff;
+  --color-card-foreground: #000000;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #000000;
+
+
+  --color-secondary: #9C6039;
+  --color-secondary-foreground: #161616;
+
+  --color-muted: #f4f4f4;
+  --color-muted-foreground: #727272;
+
+  --color-accent: #f4f4f4;
+  --color-accent-foreground: #161616;
+
+  --color-destructive: #ee4343;
+  --color-destructive-foreground: #f9f9f9;
+
+  --color-border: #e5e5e5;
+  --color-border-primary: #f29559;
+
+  --color-input: #e5e5e5;
+  --color-ring: #f5985b;
+
+  --color-chart-1: #e76e4f;
+  --color-chart-2: #299d8f;
+  --color-chart-3: #264753;
+  --color-chart-4: #e8c468;
+  --color-chart-5: #f4a361;
+
+--border-primary: #f29559;
+
 }
 
 * {

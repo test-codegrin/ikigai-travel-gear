@@ -2,14 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { mutationQuery, selectQuery } from "@/lib/db";
 import { saveFile } from "@/lib/file-upload";
 import { sendWarrantyConfirmation } from "@/lib/email";
-import { sendWarrantyConfirmationSMS } from "@/lib/twilio";
 import { RowDataPacket } from "mysql2/promise";
 import { randomBytes } from "crypto";
-
-interface CustomerRow extends RowDataPacket {
-  id: number;
-  email: string;
-}
 
 interface StatusRow extends RowDataPacket {
   id: number;
@@ -22,14 +16,17 @@ export async function POST(request: NextRequest) {
     const name = formData.get("name") as string;
     const email = formData.get("email") as string;
     const mobile = formData.get("mobile") as string;
+    const address = formData.get("address") as string;
+    const city = formData.get("city") as string;
+    const pincode = formData.get("pincode") as string;
     const purchase_date = formData.get("purchase_date") as string;
-    const product_description = formData.get("product_description") as string;
-    const warranty_card_number = formData.get("warranty_card_number") as string | null;
+    const purchase_from = formData.get("purchase_from") as string;
+    const purchase_price = formData.get("purchase_price") as string;
     const invoice_file = formData.get("invoice_file") as File;
     const warranty_card_file = formData.get("warranty_card_file") as File;
 
     // Validation
-    if (!name || !email || !mobile || !purchase_date || !product_description) {
+    if (!name || !email || !mobile || !purchase_date || !purchase_from) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -45,26 +42,10 @@ export async function POST(request: NextRequest) {
 
     // Upload files
     const invoice_file_url = await saveFile(invoice_file, "invoice");
-    const warranty_card_file_url = await saveFile(warranty_card_file, "warranty-card");
-
-    // Check if customer exists
-    const existingCustomer = await selectQuery<CustomerRow>(
-      "SELECT id FROM customers WHERE email = ? AND is_deleted = FALSE",
-      [email]
+    const warranty_card_file_url = await saveFile(
+      warranty_card_file,
+      "warranty-card"
     );
-
-    let customerId: number;
-
-    if (existingCustomer.length > 0) {
-      customerId = existingCustomer[0].id;
-    } else {
-      // Create new customer
-      const result = await mutationQuery(
-        "INSERT INTO customers (name, email, mobile) VALUES (?, ?, ?)",
-        [name, email, mobile]
-      );
-      customerId = result.insertId;
-    }
 
     // Get 'registered' status ID
     const statusResult = await selectQuery<StatusRow>(
@@ -80,24 +61,40 @@ export async function POST(request: NextRequest) {
 
     const statusId = statusResult[0].id;
 
-    // Generate external_id
+    // Generate external_id (Warranty ID)
     const external_id = `IKG-${randomBytes(6).toString("hex").toUpperCase()}`;
 
-    // Insert warranty
+    // Insert warranty with all customer data
     await mutationQuery(
       `INSERT INTO warranties (
-        external_id, customer_id, purchase_date, invoice_file_url,
-        warranty_card_number, warranty_card_file_url, product_description,
-        warranty_status_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        external_id,
+        customer_name,
+        customer_mobile,
+        customer_email,
+        customer_address,
+        customer_city,
+        customer_pincode,
+        purchase_date,
+        purchase_from,
+        purchase_price,
+        invoice_file_url,
+        warranty_card_file_url,
+        warranty_status_id,
+        registration_date
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
       [
         external_id,
-        customerId,
+        name,
+        mobile,
+        email,
+        address,
+        city,
+        pincode,
         purchase_date,
+        purchase_from,
+        purchase_price,
         invoice_file_url,
-        warranty_card_number,
         warranty_card_file_url,
-        product_description,
         statusId,
       ]
     );
@@ -107,13 +104,7 @@ export async function POST(request: NextRequest) {
       await sendWarrantyConfirmation(email, name, external_id);
     } catch (emailError) {
       console.error("Failed to send confirmation email:", emailError);
-    }
-
-    // Send confirmation SMS
-    try {
-      await sendWarrantyConfirmationSMS(mobile, name, external_id);
-    } catch (smsError) {
-      console.error("Failed to send confirmation SMS:", smsError);
+      // Don't fail the request if email fails
     }
 
     return NextResponse.json(
