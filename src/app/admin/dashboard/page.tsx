@@ -174,6 +174,9 @@ export default function AdminDashboardPage() {
                 Manage and track warranty registrations
               </p>
             </div>
+            <div>
+              <Button variant="outline" onClick={()=>router.push("/admin/warranties")}>View All</Button>
+            </div>
            
           </div>
         </CardHeader>

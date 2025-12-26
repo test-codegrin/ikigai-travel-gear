@@ -2,14 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
 const navLinks = [
   { href: "/", label: "Home" },
   { href: "/about", label: "About" },
-  { href: "/warranty/register", label: "Register Warranty" },
+  { href: "/warranty/activate", label: "Activate Warranty" },
+  { href: "/warranty/claim", label: "Claim Warranty" },
+
 ];
 
 export default function Navbar() {

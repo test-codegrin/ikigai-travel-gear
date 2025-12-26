@@ -5,4 +5,5 @@ export const API = {
     WARRANTIES: "/api/admin/warranties",
     PROFILE: "/api/admin/profile",
     WARRANTY_STATUSES: "/api/admin/warranty-statuses",
+    ACTIVATE_WARRANT: "/api/warranty/activate",
 }

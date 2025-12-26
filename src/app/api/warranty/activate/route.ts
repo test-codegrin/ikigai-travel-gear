@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       {
-        message: "Warranty registered successfully",
+        message: "Warranty activated successfully",
         warranty_id: external_id,
       },
       { status: 201 }
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Warranty registration error:", error);
     return NextResponse.json(
-      { error: "Failed to register warranty" },
+      { error: "Failed to activate warranty" },
       { status: 500 }
     );
   }

@@ -46,15 +46,13 @@ import {
   Eye,
   FileText,
   ImageIcon,
-  AlertCircle,
 } from "lucide-react";
 import { countryCodes } from "@/lib/country-codes";
 import { purchaseFromOptions } from "@/lib/purchase-option";
+import { API } from "@/lib/api-endpoints";
 
 // File size limit from environment variable (default 5MB)
-const MAX_FILE_SIZE = parseInt(
-  process.env.NEXT_PUBLIC_MAX_FILE_SIZE || "5242880"
-);
+const MAX_FILE_SIZE = 5242880;
 const MAX_FILE_SIZE_MB = (MAX_FILE_SIZE / (1024 * 1024)).toFixed(1);
 
 function formatDate(date: Date | undefined) {
@@ -88,7 +86,7 @@ export default function WarrantyPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [warrantyId, setWarrantyId] = useState("");
-  const [mobileVerified, setMobileVerified] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
   const [otp, setOtp] = useState("");
@@ -134,8 +132,8 @@ export default function WarrantyPage() {
   ) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
 
-    if (e.target.name === "mobile" && mobileVerified) {
-      setMobileVerified(false);
+    if (e.target.name === "email" && emailVerified) {
+      setEmailVerified(false);
       setOtpSent(false);
       setOtp("");
     }
@@ -145,11 +143,6 @@ export default function WarrantyPage() {
     const value = e.target.value.replace(/\D/g, "");
     if (value.length <= 10) {
       setFormData({ ...formData, mobile: value });
-      if (mobileVerified) {
-        setMobileVerified(false);
-        setOtpSent(false);
-        setOtp("");
-      }
     }
   };
 
@@ -218,10 +211,6 @@ export default function WarrantyPage() {
       const previewField =
         field === "invoice_file" ? "invoice_preview" : "warranty_card_preview";
       setFilePreviews({ ...filePreviews, [previewField]: previewUrl });
-
-      // toast.success(
-      //   `File uploaded: ${file.name} (${formatFileSize(file.size)})`
-      // );
     }
   };
 
@@ -264,18 +253,20 @@ export default function WarrantyPage() {
   };
 
   const handleSendOTP = async () => {
-    if (!formData.mobile || formData.mobile.length !== 10) {
-      toast.error("Please enter a valid 10-digit mobile number");
+    if (!formData.email) {
+      toast.error("Please enter your email address");
       return;
     }
 
     setOtpLoading(true);
     try {
-      const fullMobile = `${countryCode}${formData.mobile}`;
-      const response = await fetch("/api/otp/send", {
+      const response = await fetch("/api/otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mobile: fullMobile }),
+        body: JSON.stringify({
+          email: formData.email,
+          action: "send",
+        }),
       });
 
       const data = await response.json();
@@ -285,7 +276,7 @@ export default function WarrantyPage() {
       }
 
       setOtpSent(true);
-      toast.success(`OTP sent to ${fullMobile}`);
+      toast.success(`OTP sent to ${formData.email}`);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to send OTP";
@@ -303,11 +294,14 @@ export default function WarrantyPage() {
 
     setOtpLoading(true);
     try {
-      const fullMobile = `${countryCode}${formData.mobile}`;
-      const response = await fetch("/api/otp/verify", {
+      const response = await fetch("/api/otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mobile: fullMobile, otp }),
+        body: JSON.stringify({
+          email: formData.email,
+          otp,
+          action: "verify",
+        }),
       });
 
       const data = await response.json();
@@ -316,9 +310,9 @@ export default function WarrantyPage() {
         throw new Error(data.error || "Invalid OTP");
       }
 
-      setMobileVerified(true);
+      setEmailVerified(true);
       setOtpSent(false);
-      toast.success("Mobile number verified successfully!");
+      toast.success("Email verified successfully!");
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to verify OTP";
@@ -331,8 +325,8 @@ export default function WarrantyPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!mobileVerified) {
-      toast.error("Please verify your mobile number first");
+    if (!emailVerified) {
+      toast.error("Please verify your email address first");
       return;
     }
 
@@ -388,7 +382,7 @@ export default function WarrantyPage() {
       if (files.warranty_card_file)
         data.append("warranty_card_file", files.warranty_card_file);
 
-      const response = await fetch("/api/warranty/register", {
+      const response = await fetch(API.ACTIVATE_WARRANT, {
         method: "POST",
         body: data,
       });
@@ -396,15 +390,15 @@ export default function WarrantyPage() {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || "Failed to register warranty");
+        throw new Error(result.error || "Failed to activate warranty");
       }
 
       setWarrantyId(result.warranty_id);
       setSuccess(true);
-      toast.success("Success! Your warranty has been registered.");
+      toast.success("Success! Your warranty has been activated.");
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Failed to register warranty";
+        error instanceof Error ? error.message : "Failed to activate warranty";
       toast.error(message);
     } finally {
       setLoading(false);
@@ -420,7 +414,7 @@ export default function WarrantyPage() {
               <CheckCircle className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
             </div>
             <CardTitle className="text-xl sm:text-2xl font-semibold">
-              Registration Successful!
+              Activation Successful!
             </CardTitle>
             <CardDescription className="text-sm sm:text-base">
               Your warranty has been registered with IKIGAI Travel Gear
@@ -445,7 +439,7 @@ export default function WarrantyPage() {
               onClick={() => window.location.reload()}
               className="w-full bg-primary hover:bg-primary/80 text-white h-9 sm:h-10 text-sm sm:text-base"
             >
-              Register Another Warranty
+              Activate Another Warranty
             </Button>
           </CardContent>
         </Card>
@@ -458,19 +452,17 @@ export default function WarrantyPage() {
       <div className="max-w-5xl mx-auto">
         <div className="pb-3 sm:pb-4 border-b p-4 sm:p-6">
           <div className="text-base sm:text-lg font-semibold">
-            Register Your Warranty
+            Activate Your Warranty
           </div>
           <div className="text-xs sm:text-sm mt-1 text-gray-600">
             Complete the form below to activate your 3-year warranty coverage
           </div>
-        
         </div>
 
         <div className="pt-4 sm:pt-6 p-4 sm:p-6">
           <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
             {/* Customer Information Section */}
             <div className="space-y-4 sm:space-y-5">
-          
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 {/* Full Name */}
                 <div>
@@ -488,11 +480,51 @@ export default function WarrantyPage() {
                   />
                 </div>
 
-                {/* Email Address */}
+                {/* Mobile Number */}
                 <div>
-                  <Label htmlFor="email" className="text-xs sm:text-sm">
-                    Email Address <span className="text-red-500">*</span>
+                  <Label htmlFor="mobile" className="text-xs sm:text-sm">
+                    Mobile Number <span className="text-red-500">*</span>
                   </Label>
+                  <div className="flex gap-2 mt-1">
+                    <Select value={countryCode} onValueChange={setCountryCode}>
+                      <SelectTrigger className="w-20 sm:w-24 h-9 sm:h-10 text-xs sm:text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {countryCodes.map((country) => (
+                          <SelectItem
+                            key={country.code}
+                            value={country.code}
+                            className="text-xs sm:text-sm"
+                          >
+                            {country.flag} {country.code}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      id="mobile"
+                      name="mobile"
+                      type="tel"
+                      required
+                      value={formData.mobile}
+                      onChange={handleMobileChange}
+                      placeholder="9876543210"
+                      maxLength={10}
+                      className="h-9 sm:h-10 flex-1 text-sm sm:text-base"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Email Address with OTP Verification */}
+              <div>
+                <Label htmlFor="email" className="text-xs sm:text-sm">
+                  Email Address <span className="text-red-500">*</span>
+                </Label>
+
+                {/* Email input row */}
+                <div className="flex gap-2 mt-1">
                   <Input
                     id="email"
                     name="email"
@@ -501,58 +533,16 @@ export default function WarrantyPage() {
                     value={formData.email}
                     onChange={handleInputChange}
                     placeholder="john@example.com"
-                    className="mt-1 h-9 sm:h-10 text-sm sm:text-base"
-                  />
-                </div>
-              </div>
-
-              {/* Mobile Number with OTP Verification */}
-              <div>
-                <Label htmlFor="mobile" className="text-xs sm:text-sm">
-                  Mobile Number <span className="text-red-500">*</span>
-                </Label>
-
-                {/* Mobile input row */}
-                <div className="flex gap-2 mt-1">
-                  <Select
-                    value={countryCode}
-                    onValueChange={setCountryCode}
-                    disabled={mobileVerified || otpSent}
-                  >
-                    <SelectTrigger className="w-20 sm:w-24 h-9 sm:h-10 text-xs sm:text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {countryCodes.map((country) => (
-                        <SelectItem
-                          key={country.code}
-                          value={country.code}
-                          className="text-xs sm:text-sm"
-                        >
-                          {country.flag} {country.code}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    id="mobile"
-                    name="mobile"
-                    type="tel"
-                    required
-                    value={formData.mobile}
-                    onChange={handleMobileChange}
-                    placeholder="9876543210"
-                    maxLength={10}
                     className="h-9 sm:h-10 flex-1 text-sm sm:text-base"
-                    disabled={mobileVerified || otpSent}
+                    disabled={emailVerified || otpSent}
                   />
 
                   {/* Send OTP button - desktop only */}
-                  {!mobileVerified && !otpSent && (
+                  {!emailVerified && !otpSent && (
                     <Button
                       type="button"
                       onClick={handleSendOTP}
-                      disabled={otpLoading || formData.mobile.length !== 10}
+                      disabled={otpLoading || !formData.email}
                       className="hidden sm:flex bg-primary hover:bg-primary/80 text-white h-9 sm:h-10 px-3 sm:px-4 shrink-0 text-xs sm:text-sm"
                     >
                       {otpLoading ? (
@@ -564,7 +554,7 @@ export default function WarrantyPage() {
                   )}
 
                   {/* Verified badge */}
-                  {mobileVerified && (
+                  {emailVerified && (
                     <div className="flex items-center gap-1 px-2 sm:px-3 bg-green-50 text-green-700 rounded-md border border-green-300 h-9 sm:h-10 shrink-0">
                       <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />
                       <span className="text-xs sm:text-sm font-medium">
@@ -575,11 +565,11 @@ export default function WarrantyPage() {
                 </div>
 
                 {/* Send OTP button - mobile only (below input) */}
-                {!mobileVerified && !otpSent && (
+                {!emailVerified && !otpSent && (
                   <Button
                     type="button"
                     onClick={handleSendOTP}
-                    disabled={otpLoading || formData.mobile.length !== 10}
+                    disabled={otpLoading || !formData.email}
                     className="sm:hidden w-full mt-2 bg-primary hover:bg-primary/80 text-white h-9 text-sm"
                   >
                     {otpLoading ? (
@@ -594,7 +584,7 @@ export default function WarrantyPage() {
                 )}
 
                 {/* OTP Input */}
-                {otpSent && !mobileVerified && (
+                {otpSent && !emailVerified && (
                   <div className="mt-3">
                     <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
                       <InputOTP
@@ -644,8 +634,7 @@ export default function WarrantyPage() {
                       </Button>
                     </div>
                     <p className="text-xs sm:text-sm text-gray-600 mt-2">
-                      OTP sent to {countryCode} {formData.mobile}. Valid for 5
-                      minutes.
+                      OTP sent to {formData.email}. Valid for 10 minutes.
                     </p>
                   </div>
                 )}
@@ -703,7 +692,7 @@ export default function WarrantyPage() {
                   />
                 </div>
               </div>
-          
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                 {/* Purchase Date */}
                 <div>
@@ -824,7 +813,6 @@ export default function WarrantyPage() {
                   </Select>
                 </div>
               </div>
-      
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 {/* Invoice File Upload */}
@@ -983,19 +971,19 @@ export default function WarrantyPage() {
             <div className="pt-2 flex justify-center">
               <Button
                 type="submit"
-                disabled={loading || !mobileVerified}
+                disabled={loading || !emailVerified}
                 className="w-full sm:w-auto bg-primary hover:bg-primary/80 text-white h-10 sm:h-11 disabled:opacity-50 text-sm sm:text-base px-8"
               >
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     <span className="text-sm sm:text-base">
-                      Registering...
+                      Activating...
                     </span>
                   </>
-                ) : !mobileVerified ? (
+                ) : !emailVerified ? (
                   <span className="text-sm sm:text-base">
-                    Verify Mobile to Continue
+                    Verify Email to Continue
                   </span>
                 ) : (
                   <>

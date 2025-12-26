@@ -455,9 +455,9 @@ export default function WarrantyTermsPage() {
           <p className="text-gray-700 mb-3 sm:mb-4 text-sm sm:text-base">
             Ready to register your IKIGAI product?
           </p>
-          <Link href="/warranty/register">
+          <Link href="/warranty/activate">
             <Button className="bg-primary hover:bg-primary/90 text-sm sm:text-base h-9 sm:h-10 px-4 sm:px-6">
-              Register Warranty Now
+              Activate Warranty Now
             </Button>
           </Link>
         </div>

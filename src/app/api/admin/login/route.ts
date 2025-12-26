@@ -11,7 +11,6 @@ interface AdminRow extends RowDataPacket {
   is_active: boolean;
 }
 
-// Store OTPs temporarily (in production, use Redis)
 const otpStore = new Map<string, { otp: string; expires: number }>();
 
 export async function POST(request: NextRequest) {
