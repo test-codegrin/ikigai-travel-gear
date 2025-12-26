@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -17,11 +20,73 @@ import {
   Wallet,
   Globe2,
   Cog,
+  Loader2,
+  CheckCircle,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
 
 export default function HomePage() {
+  const [contactForm, setContactForm] = useState({
+    name: "",
+    email: "",
+    message: "",
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleContactSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!contactForm.name || !contactForm.email || !contactForm.message) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("https://api.web3forms.com/submit", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          access_key: process.env.NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY,
+          name: contactForm.name,
+          email: contactForm.email,
+          message: contactForm.message,
+          subject: "New Contact Form Submission - IKIGAI Travel Gear",
+          from_name: "IKIGAI Travel Gear Website",
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success("Message sent successfully! We'll get back to you soon.");
+        setContactForm({ name: "", email: "", message: "" });
+      } else {
+        throw new Error("Failed to send message");
+      }
+    } catch (error) {
+      console.error("Contact form error:", error);
+      toast.error("Failed to send message. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    setContactForm({
+      ...contactForm,
+      [e.target.id]: e.target.value,
+    });
+  };
+
   return (
     <main>
       {/* Features Section */}
@@ -336,7 +401,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Contact Section */}
+      {/* Contact Section with Web3Forms */}
       <section id="contact" className="py-16 sm:py-24 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12">
@@ -371,9 +436,12 @@ export default function HomePage() {
                     <h4 className="font-semibold text-gray-900 mb-1 text-sm sm:text-base">
                       Contact
                     </h4>
-                    <a href="tel:+919925471112" className="text-gray-600 max-w-md text-sm sm:text-base">
-                     +91 99254 71112
-                    </a>  
+                    <a
+                      href="tel:+919925471112"
+                      className="text-gray-600 hover:text-primary max-w-md text-sm sm:text-base"
+                    >
+                      +91 99254 71112
+                    </a>
                   </div>
                 </div>
 
@@ -383,7 +451,11 @@ export default function HomePage() {
                     <h4 className="font-semibold text-gray-900 mb-1 text-sm sm:text-base">
                       Address
                     </h4>
-                    <a href="https://maps.app.goo.gl/LKuaEBtfzt9Krwhw7" target="_blank" className="text-gray-600 max-w-md text-sm sm:text-base">
+                    <a
+                      href="https://maps.app.goo.gl/LKuaEBtfzt9Krwhw7"
+                      target="_blank"
+                      className="text-gray-600 hover:text-primary max-w-md text-sm sm:text-base"
+                    >
                       Plot No. G-1032, Road-E, Gate-3. Metoda GIDC, Rajkot,
                       Gujarat, India - 360021
                     </a>
@@ -396,17 +468,21 @@ export default function HomePage() {
               <h2 className="text-xl sm:text-2xl font-bold mb-5 sm:mb-6">
                 Get in touch
               </h2>
-              <form className="space-y-5 sm:space-y-6">
+              <form onSubmit={handleContactSubmit} className="space-y-5 sm:space-y-6">
                 <div>
                   <label
                     htmlFor="name"
                     className="block text-sm font-medium text-gray-700 mb-2"
                   >
-                    Name
+                    Name <span className="text-red-500">*</span>
                   </label>
                   <Input
                     type="text"
                     id="name"
+                    value={contactForm.name}
+                    onChange={handleInputChange}
+                    required
+                    disabled={isSubmitting}
                     className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                     placeholder="Your name"
                   />
@@ -417,11 +493,15 @@ export default function HomePage() {
                     htmlFor="email"
                     className="block text-sm font-medium text-gray-700 mb-2"
                   >
-                    Email
+                    Email <span className="text-red-500">*</span>
                   </label>
                   <Input
                     type="email"
                     id="email"
+                    value={contactForm.email}
+                    onChange={handleInputChange}
+                    required
+                    disabled={isSubmitting}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                     placeholder="your@email.com"
                   />
@@ -432,11 +512,15 @@ export default function HomePage() {
                     htmlFor="message"
                     className="block text-sm font-medium text-gray-700 mb-2"
                   >
-                    Message
+                    Message <span className="text-red-500">*</span>
                   </label>
                   <Textarea
                     id="message"
                     rows={4}
+                    value={contactForm.message}
+                    onChange={handleInputChange}
+                    required
+                    disabled={isSubmitting}
                     className="w-full px-4 py-3 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                     placeholder="How can we help you?"
                   />
@@ -444,9 +528,20 @@ export default function HomePage() {
 
                 <Button
                   type="submit"
+                  disabled={isSubmitting}
                   className="w-full bg-primary hover:bg-primary/90 py-3"
                 >
-                  Send Message
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="w-4 h-4 mr-2" />
+                      Send Message
+                    </>
+                  )}
                 </Button>
               </form>
             </div>

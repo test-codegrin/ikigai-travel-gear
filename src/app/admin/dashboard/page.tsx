@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import {
   Loader2,
   Package,
@@ -12,26 +11,48 @@ import {
   AlertCircle,
   TrendingUp,
   Search,
-  Download,
   Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { API } from "@/lib/api-endpoints";
 
 interface Warranty {
   id: number;
   external_id: string;
   customer_name: string;
   customer_email: string;
-  product_description: string;
-  status_name: string;
+  customer_mobile: string;
+  customer_address: string;
+  customer_city: string;
+  customer_pincode: number;
+  purchase_date: string;
+  purchase_price: number;
+  purchase_from: string;
+  invoice_file_url: string;
+  warranty_card_file_url: string;
+  warranty_status_id: number;
   registration_date: string;
+  is_deleted: number;
+  status_name: string;
+}
+
+interface Stats {
+  total: number;
+  active: number;
+  claimed: number;
+  thisMonth: number;
 }
 
 export default function AdminDashboardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [warranties, setWarranties] = useState<Warranty[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [stats, setStats] = useState<Stats>({
+    total: 0,
+    active: 0,
+    claimed: 0,
+    thisMonth: 0,
+  });
 
   useEffect(() => {
     fetchWarranties();
@@ -39,7 +60,7 @@ export default function AdminDashboardPage() {
 
   const fetchWarranties = async () => {
     try {
-      const response = await fetch("/api/admin/warranties");
+      const response = await fetch(API.DASHBOARD);
 
       if (!response.ok) {
         router.push("/admin/login");
@@ -48,6 +69,7 @@ export default function AdminDashboardPage() {
 
       const data = await response.json();
       setWarranties(data.warranties);
+      setStats(data.stats); // Set stats from API response
     } catch (error) {
       console.error("Failed to fetch warranties:", error);
     } finally {
@@ -63,22 +85,6 @@ export default function AdminDashboardPage() {
     );
   }
 
-  const stats = {
-    total: warranties.length,
-    registered: warranties.filter((w) => w.status_name === "registered").length,
-    claimed: warranties.filter((w) => w.status_name === "claimed").length,
-    thisMonth: warranties.filter(
-      (w) =>
-        new Date(w.registration_date).getMonth() === new Date().getMonth()
-    ).length,
-  };
-
-  const filteredWarranties = warranties.filter(
-    (w) =>
-      w.external_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      w.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      w.customer_email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -121,7 +127,7 @@ export default function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-gray-900">
-              {stats.registered}
+              {stats.active}
             </div>
             <p className="text-xs text-gray-500 mt-1">Currently active</p>
           </CardContent>
@@ -168,26 +174,11 @@ export default function AdminDashboardPage() {
                 Manage and track warranty registrations
               </p>
             </div>
-            <Button variant="outline" size="sm" className="gap-2">
-              <Download className="w-4 h-4" />
-              Export
-            </Button>
+           
           </div>
         </CardHeader>
         <CardContent>
-          {/* Search */}
-          <div className="mb-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input
-                placeholder="Search by warranty ID, customer name, or email..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </div>
-
+      
           {/* Table */}
           <div className="border rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
@@ -201,7 +192,10 @@ export default function AdminDashboardPage() {
                       Customer
                     </th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Product
+                      City
+                    </th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Price
                     </th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Status
@@ -215,14 +209,17 @@ export default function AdminDashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white">
-                  {filteredWarranties.length === 0 ? (
+                  {warranties.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-8 text-center text-gray-500">
+                      <td
+                        colSpan={7}
+                        className="py-8 text-center text-gray-500"
+                      >
                         No warranties found
                       </td>
                     </tr>
                   ) : (
-                    filteredWarranties.slice(0, 10).map((warranty) => (
+                    warranties.map((warranty) => (
                       <tr
                         key={warranty.id}
                         className="hover:bg-gray-50 transition-colors"
@@ -244,7 +241,12 @@ export default function AdminDashboardPage() {
                         </td>
                         <td className="py-3 px-4">
                           <span className="text-sm text-gray-700">
-                            {warranty.product_description || "N/A"}
+                            {warranty.customer_city}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="text-sm font-medium text-gray-900">
+                            ₹{warranty.purchase_price}
                           </span>
                         </td>
                         <td className="py-3 px-4">
@@ -267,7 +269,16 @@ export default function AdminDashboardPage() {
                           })}
                         </td>
                         <td className="py-3 px-4">
-                          <Button variant="ghost" size="sm" className="gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="gap-2"
+                            onClick={() =>
+                              router.push(
+                                `/admin/warranties/${warranty.external_id}`
+                              )
+                            }
+                          >
                             <Eye className="w-4 h-4" />
                             View
                           </Button>
@@ -281,9 +292,10 @@ export default function AdminDashboardPage() {
           </div>
 
           {/* Pagination info */}
-          {filteredWarranties.length > 10 && (
+          {warranties.length > 0 && (
             <div className="mt-4 text-sm text-gray-500 text-center">
-              Showing 10 of {filteredWarranties.length} warranties
+              Showing {Math.min(warranties.length, 10)} of {stats.total}{" "}
+              total warranties
             </div>
           )}
         </CardContent>

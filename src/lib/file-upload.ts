@@ -1,48 +1,48 @@
-import fs from "fs/promises";
-import path from "path";
-import { randomBytes } from "crypto";
+import type { UploadResponse } from "imagekit/dist/libs/interfaces";
+import imagekit from "./imagekit";
 
-const UPLOAD_DIR = process.env.UPLOAD_DIR || "./public/uploads";
-const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE || "5242880"); 
-
-export async function ensureUploadDir() {
-  const invoiceDir = path.join(process.cwd(), UPLOAD_DIR, "invoices");
-  const warrantyCardDir = path.join(process.cwd(), UPLOAD_DIR, "warranty-cards");
-  
-  await fs.mkdir(invoiceDir, { recursive: true });
-  await fs.mkdir(warrantyCardDir, { recursive: true });
-}
+const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE || "5242880"); // 5MB
 
 export async function saveFile(
   file: File,
   type: "invoice" | "warranty-card"
-): Promise<string> {
+): Promise<{ url: string; fileId: string }> {
   if (file.size > MAX_FILE_SIZE) {
     throw new Error("File size exceeds 5MB limit");
   }
 
-  await ensureUploadDir();
-
+  // Convert File to buffer
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
 
-  const fileExt = path.extname(file.name);
-  const randomName = randomBytes(16).toString("hex");
-  const fileName = `${randomName}${fileExt}`;
+  // Determine folder path based on type
+  const folder = type === "invoice" ? "/invoices" : "/warranty-cards";
 
-  const subDir = type === "invoice" ? "invoices" : "warranty-cards";
-  const filePath = path.join(process.cwd(), UPLOAD_DIR, subDir, fileName);
+  try {
+    // Upload to ImageKit
+    const uploadResponse: UploadResponse = await imagekit.upload({
+      file: buffer,
+      fileName: file.name,
+      folder: folder,
+      useUniqueFileName: true, // Automatically generates unique filename
+    });
 
-  await fs.writeFile(filePath, buffer);
-
-  return `/uploads/${subDir}/${fileName}`;
+    // Return both URL and fileId for future deletion
+    return {
+      url: uploadResponse.url,
+      fileId: uploadResponse.fileId,
+    };
+  } catch (error) {
+    console.error("ImageKit upload error:", error);
+    throw new Error("Failed to upload file to ImageKit");
+  }
 }
 
-export async function deleteFile(fileUrl: string) {
+export async function deleteFile(fileId: string) {
   try {
-    const filePath = path.join(process.cwd(), "public", fileUrl);
-    await fs.unlink(filePath);
+    await imagekit.deleteFile(fileId);
   } catch (error) {
-    console.error("Error deleting file:", error);
+    console.error("Error deleting file from ImageKit:", error);
+    throw error;
   }
 }

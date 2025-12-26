@@ -243,3 +243,142 @@ export async function sendWarrantyConfirmation(
 
   await transporter.sendMail(mailOptions);
 }
+
+export async function sendWarrantyStatusUpdate(
+  email: string,
+  name: string,
+  externalId: string,
+  statusName: string,
+  statusMessage: string
+) {
+  const mailOptions = {
+    from: process.env.EMAIL_FROM,
+    to: email,
+    subject: `Warranty Status Update - ${externalId}`,
+    html: `
+     <div style="margin:0; padding:0; background-color:#f5f5f5;">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Mulish:wght@400;600;700&display=swap');
+  </style>
+
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#f5f5f5; padding:24px 0; font-family:'Mulish', Arial, sans-serif;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 2px 6px rgba(0,0,0,0.08); font-family:'Mulish', Arial, sans-serif;">
+          
+          <!-- Header with logo -->
+          <tr>
+            <td style="padding:24px; border-bottom: 1px solid #e5e5e5;">
+              <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+                <tr>
+                  <td align="left">
+                    <img 
+                      src="https://ik.imagekit.io/devanpatel/logo/ikigai-logo.png" 
+                      alt="Ikigai Travel Gear" 
+                      style="height:25px; display:block;"
+                    />
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:32px 24px 16px 24px; font-family:'Mulish', Arial, sans-serif;">
+              <p style="margin:0; font-size:15px; line-height:1.6; color:#000000; font-family:'Mulish', Arial, sans-serif;">
+                Dear ${name},
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:0 24px 24px 24px; font-family:'Mulish', Arial, sans-serif;">
+              <p style="margin:0 0 20px 0; font-size:15px; line-height:1.6; color:#000000; font-family:'Mulish', Arial, sans-serif;">
+                We wanted to inform you that the status of your warranty has been updated.
+              </p>
+
+              <!-- Warranty ID Box -->
+              <table cellpadding="0" cellspacing="0" role="presentation" style="margin-top:20px; background-color:#ffffff; border-radius:6px; border:2px solid #f29559; width:100%; font-family:'Mulish', Arial, sans-serif;">
+                <tr>
+                  <td style="padding:16px 20px;">
+                    <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+                      <tr>
+                        <td style="padding-bottom:8px;">
+                          <span style="font-size:13px; color:#000000; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; font-family:'Mulish', Arial, sans-serif;">
+                            Warranty ID
+                          </span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding-bottom:16px;">
+                          <span style="font-size:20px; color:#f29559; font-weight:700; letter-spacing:0.5px; font-family:'Mulish', Arial, sans-serif;">
+                            ${externalId}
+                          </span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding-top:12px; border-top:1px solid #e5e5e5;">
+                          <span style="font-size:13px; color:#000000; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; font-family:'Mulish', Arial, sans-serif;">
+                            Current Status
+                          </span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding-top:6px;">
+                          <span style="font-size:18px; color:#000000; font-weight:600; font-family:'Mulish', Arial, sans-serif;">
+                            ${statusName}
+                          </span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:20px 0 0 0; font-size:15px; line-height:1.6; color:#000000; font-family:'Mulish', Arial, sans-serif;">
+                ${statusMessage}
+              </p>
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr>
+            <td style="padding:0 24px;">
+              <div style="height:1px; background-color:#e5e5e5;"></div>
+            </td>
+          </tr>
+
+          <!-- Contact Support -->
+          <tr>
+            <td style="padding:24px; font-family:'Mulish', Arial, sans-serif;">
+              <p style="margin:0 0 8px 0; font-size:14px; line-height:1.6; color:#000000; font-family:'Mulish', Arial, sans-serif;">
+                If you have any questions or concerns, please don't hesitate to contact our support team.
+              </p>
+              <p style="margin:8px 0 0 0; font-size:15px; line-height:1.6; color:#000000; font-weight:600; font-family:'Mulish', Arial, sans-serif;">
+                Best regards,<br/>
+                Ikigai Travel Gear Team
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer note -->
+          <tr>
+            <td style="padding:20px 24px; background-color:#f5f5f5; font-family:'Mulish', Arial, sans-serif;">
+              <p style="margin:0; font-size:12px; line-height:1.5; color:#666666; text-align:center; font-family:'Mulish', Arial, sans-serif;">
+                This email was sent regarding your warranty status update with Ikigai Travel Gear.<br/>
+                If you did not expect this email, please contact our support team immediately.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</div>
+    `,
+  };
+
+  await transporter.sendMail(mailOptions);
+}

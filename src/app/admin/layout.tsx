@@ -3,24 +3,52 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard,
   FileText,
-  Users,
-  Settings,
   LogOut,
   Menu,
   X,
+  User,
+  Settings,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { API } from "@/lib/api-endpoints";
+import { toast } from "sonner";
 
 const navigation = [
   { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
   { name: "Warranties", href: "/admin/warranties", icon: FileText },
-  { name: "Customers", href: "/admin/customers", icon: Users },
   { name: "Settings", href: "/admin/settings", icon: Settings },
 ];
+
+interface Admin {
+  id: number;
+  email: string;
+  name: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
 
 export default function AdminLayout({
   children,
@@ -30,17 +58,111 @@ export default function AdminLayout({
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [admin, setAdmin] = useState<Admin | null>(null);
+  const [loadingAdmin, setLoadingAdmin] = useState(true);
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
-  // Skip layout for login page
+  useEffect(() => {
+    if (pathname !== "/admin/login") {
+      fetchAdminProfile();
+    } else {
+      setLoadingAdmin(false);
+    }
+  }, [pathname]);
+
+  const fetchAdminProfile = async () => {
+    try {
+      setLoadingAdmin(true);
+      const response = await fetch(API.PROFILE, {
+        method: "GET",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAdmin(data.admin);
+      } else {
+        router.replace("/admin/login");
+      }
+    } catch (error) {
+      console.error("Failed to fetch admin profile:", error);
+      router.replace("/admin/login");
+    } finally {
+      setLoadingAdmin(false);
+    }
+  };
+
+  const handleLogoutClick = () => {
+    setShowLogoutDialog(true);
+  };
+
+  const handleLogoutConfirm = async () => {
+    try {
+      setLoggingOut(true);
+
+      // Call logout API to clear cookie
+      const response = await fetch(API.LOGOUT, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.ok) {
+        // Clear localStorage
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("admin-token");
+          localStorage.removeItem("admin-user");
+          localStorage.clear();
+          sessionStorage.clear();
+        }
+
+        // Clear state
+        setAdmin(null);
+
+        // Show success message
+        toast.success("Logged out successfully");
+
+        // Replace history to prevent back navigation
+        window.history.pushState(null, "", "/admin/login");
+
+        // Navigate to login
+        router.replace("/admin/login");
+
+        // Force page refresh to clear all state
+        setTimeout(() => {
+          window.location.href = "/admin/login";
+        }, 100);
+      } else {
+        toast.error("Logout failed. Please try again.");
+      }
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast.error("Logout failed. Please try again.");
+    } finally {
+      setLoggingOut(false);
+      setShowLogoutDialog(false);
+    }
+  };
+
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  // Skip layout rendering for login page
   if (pathname === "/admin/login") {
     return <>{children}</>;
   }
-
-  const handleLogout = () => {
-    document.cookie =
-      "admin-token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
-    router.push("/admin/login");
-  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -65,9 +187,7 @@ export default function AdminLayout({
               <img
                 src="/ikigai-logo.png"
                 alt="IKIGAI Travel Gear"
-              
                 className="h-6 w-auto"
-                
               />
             </div>
             <button
@@ -78,17 +198,11 @@ export default function AdminLayout({
             </button>
           </div>
 
-          {/* Admin badge */}
-          <div className="px-6 py-4 border-b bg-primary/5">
-            <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">
-              Admin Panel
-            </p>
-          </div>
-
           {/* Navigation */}
           <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
             {navigation.map((item) => {
-              const isActive = pathname === item.href;
+              const isActive =
+                pathname === item.href || pathname.startsWith(item.href + "/");
               return (
                 <Link
                   key={item.name}
@@ -106,18 +220,6 @@ export default function AdminLayout({
               );
             })}
           </nav>
-
-          {/* Logout */}
-          <div className="p-4 border-t">
-            <Button
-              onClick={handleLogout}
-              variant="outline"
-              className="w-full justify-start gap-3 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
-            >
-              <LogOut className="w-5 h-5" />
-              Logout
-            </Button>
-          </div>
         </div>
       </aside>
 
@@ -134,25 +236,106 @@ export default function AdminLayout({
 
           <div className="flex-1 lg:ml-0 ml-4">
             <h1 className="text-lg font-semibold text-gray-900">
-              {navigation.find((item) => item.href === pathname)?.name ||
-                "Dashboard"}
+              {navigation.find((item) => pathname.startsWith(item.href))
+                ?.name || "Dashboard"}
             </h1>
           </div>
 
+          {/* Admin Profile Dropdown */}
           <div className="flex items-center gap-3">
-            <div className="hidden sm:block text-right">
-              <p className="text-sm font-medium text-gray-900">Admin</p>
-              <p className="text-xs text-gray-500">Administrator</p>
-            </div>
-            <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white font-semibold text-sm">
-              A
-            </div>
+            {loadingAdmin ? (
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-full bg-gray-200 animate-pulse"></div>
+              </div>
+            ) : admin ? (
+              <>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <div className="flex gap-2 cursor-pointer">
+                      <Avatar className="h-9 w-9 cursor-pointer ring-2 ring-transparent hover:ring-primary transition-all">
+                        <AvatarFallback className="bg-primary text-white font-semibold">
+                          {getInitials(admin.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="hidden sm:block">
+                        <p className="text-sm font-medium text-gray-900">
+                          {admin.name}
+                        </p>
+                        <p className="text-xs text-gray-500">Administrator</p>
+                      </div>
+                    </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel>
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium leading-none">
+                          {admin.name}
+                        </p>
+                        <p className="text-xs leading-none text-muted-foreground">
+                          {admin.email}
+                        </p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => router.push("/admin/profile")}
+                      className="cursor-pointer"
+                    >
+                      <User className="mr-2 h-4 w-4" />
+                      Profile
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={handleLogoutClick}
+                      className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+                    >
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Log out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            ) : (
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-full bg-gray-300"></div>
+              </div>
+            )}
           </div>
         </header>
 
         {/* Page content */}
         <main className="p-4 lg:p-6">{children}</main>
       </div>
+
+      {/* Logout Confirmation Dialog */}
+      <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Logout</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to log out? You&apos;ll need to log in
+              again to access the admin panel.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={loggingOut}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleLogoutConfirm}
+              disabled={loggingOut}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {loggingOut ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Logging out...
+                </div>
+              ) : (
+                "Log out"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -40,12 +40,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Upload files
-    const invoice_file_url = await saveFile(invoice_file, "invoice");
-    const warranty_card_file_url = await saveFile(
-      warranty_card_file,
-      "warranty-card"
-    );
+    // Upload files to ImageKit (organized in folders)
+    const invoiceUpload = await saveFile(invoice_file, "invoice");
+    const warrantyCardUpload = await saveFile(warranty_card_file, "warranty-card");
 
     // Get 'registered' status ID
     const statusResult = await selectQuery<StatusRow>(
@@ -64,7 +61,7 @@ export async function POST(request: NextRequest) {
     // Generate external_id (Warranty ID)
     const external_id = `IKG-${randomBytes(6).toString("hex").toUpperCase()}`;
 
-    // Insert warranty with all customer data
+    // Insert warranty with all customer data and ImageKit file IDs
     await mutationQuery(
       `INSERT INTO warranties (
         external_id,
@@ -78,10 +75,12 @@ export async function POST(request: NextRequest) {
         purchase_from,
         purchase_price,
         invoice_file_url,
+        invoice_file_id,
         warranty_card_file_url,
+        warranty_card_file_id,
         warranty_status_id,
         registration_date
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
       [
         external_id,
         name,
@@ -93,8 +92,10 @@ export async function POST(request: NextRequest) {
         purchase_date,
         purchase_from,
         purchase_price,
-        invoice_file_url,
-        warranty_card_file_url,
+        invoiceUpload.url,
+        invoiceUpload.fileId,
+        warrantyCardUpload.url,
+        warrantyCardUpload.fileId,
         statusId,
       ]
     );

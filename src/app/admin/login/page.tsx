@@ -28,14 +28,28 @@ export default function AdminLoginPage() {
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
 
-  // Check if admin is already logged in
+  // Prevent back navigation after logout
+  useEffect(() => {
+    // Replace state to prevent back navigation
+    if (typeof window !== "undefined") {
+      window.history.pushState(null, "", window.location.href);
+      
+      const handlePopState = () => {
+        window.history.pushState(null, "", window.location.href);
+      };
+      
+      window.addEventListener("popstate", handlePopState);
+      
+      return () => {
+        window.removeEventListener("popstate", handlePopState);
+      };
+    }
+  }, []);
+  // Check if admin is already logged in using localStorage
   useEffect(() => {
     const checkAuthentication = () => {
-      // Check for admin-token cookie
-      const cookies = document.cookie.split("; ");
-      const adminToken = cookies.find((row) =>
-        row.startsWith("admin-token=")
-      );
+      // Check for admin-token in localStorage
+      const adminToken = localStorage.getItem("admin-token");
 
       if (adminToken) {
         // Admin is already logged in, redirect to dashboard
@@ -47,6 +61,7 @@ export default function AdminLoginPage() {
 
     checkAuthentication();
   }, [router]);
+
 
   const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,8 +114,13 @@ export default function AdminLoginPage() {
         throw new Error(data.error || "Invalid OTP");
       }
 
+      // Store token and admin data in localStorage
+      localStorage.setItem("admin-token", data.token);
+      localStorage.setItem("admin-user", JSON.stringify(data.admin));
+
       toast.success("Login successful!");
       router.push("/admin/dashboard");
+      router.refresh();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Invalid OTP";
       toast.error(message);
@@ -126,19 +146,16 @@ export default function AdminLoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-primary/10 p-3 sm:p-4">
       <Card className="max-w-md w-full">
-        <CardHeader className="text-center p-4 sm:p-6">
+        <CardHeader className="text-center px-4 sm:px-6">
           <CardTitle className="text-xl sm:text-2xl">Admin Login</CardTitle>
           <CardDescription className="text-xs sm:text-sm mt-1">
             Ikigai Travel Gear - Warranty Management
           </CardDescription>
         </CardHeader>
-        <CardContent className="p-4 sm:p-6 pt-0">
+        <CardContent className="px-4 sm:px-6 pt-0">
           {step === "email" ? (
             <form onSubmit={handleSendOTP} className="space-y-4">
               <div>
-                <Label htmlFor="email" className="text-sm">
-                  Admin Email
-                </Label>
                 <div className="relative mt-2">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                   <Input

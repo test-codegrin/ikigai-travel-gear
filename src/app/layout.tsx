@@ -3,6 +3,7 @@ import { Mulish } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import { usePathname } from "next/navigation";
+import { Toaster } from "sonner";
 
 
 const mulish = Mulish({
@@ -18,6 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
      <html lang="en" className={mulish.variable} suppressHydrationWarning>
       <body>
         <NavbarWrapper />
+        <Toaster position="bottom-right" richColors />
         {children}
       </body>
     </html>

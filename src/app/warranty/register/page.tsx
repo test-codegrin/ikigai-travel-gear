@@ -46,10 +46,16 @@ import {
   Eye,
   FileText,
   ImageIcon,
+  AlertCircle,
 } from "lucide-react";
-import Image from "next/image";
 import { countryCodes } from "@/lib/country-codes";
 import { purchaseFromOptions } from "@/lib/purchase-option";
+
+// File size limit from environment variable (default 5MB)
+const MAX_FILE_SIZE = parseInt(
+  process.env.NEXT_PUBLIC_MAX_FILE_SIZE || "5242880"
+);
+const MAX_FILE_SIZE_MB = (MAX_FILE_SIZE / (1024 * 1024)).toFixed(1);
 
 function formatDate(date: Date | undefined) {
   if (!date) {
@@ -70,11 +76,19 @@ function isValidDate(date: Date | undefined) {
   return !isNaN(date.getTime());
 }
 
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return "0 Bytes";
+  const k = 1024;
+  const sizes = ["Bytes", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
+}
+
 export default function WarrantyPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [warrantyId, setWarrantyId] = useState("");
-  const [mobileVerified, setMobileVerified] = useState(true);
+  const [mobileVerified, setMobileVerified] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
   const [otp, setOtp] = useState("");
@@ -97,7 +111,7 @@ export default function WarrantyPage() {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    mobile: "1234567890",
+    mobile: "",
     address: "",
     city: "",
     pincode: "",
@@ -148,11 +162,40 @@ export default function WarrantyPage() {
 
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/[^\d.]/g, "");
-    // Allow only one decimal point
     const parts = value.split(".");
     if (parts.length > 2) return;
-    
+
     setFormData({ ...formData, purchase_price: value });
+  };
+
+  const validateFile = (file: File): boolean => {
+    // Check file size
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error(
+        `File size exceeds ${MAX_FILE_SIZE_MB}MB limit. Current size: ${formatFileSize(
+          file.size
+        )}`
+      );
+      return false;
+    }
+
+    // Check file type
+    const allowedTypes = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+      "application/pdf",
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      toast.error(
+        "Invalid file type. Only JPEG, PNG, WEBP, and PDF are allowed"
+      );
+      return false;
+    }
+
+    return true;
   };
 
   const handleFileChange = (
@@ -162,12 +205,23 @@ export default function WarrantyPage() {
     const input = e.target;
     if (input.files && input.files[0]) {
       const file = input.files[0];
+
+      // Validate file before setting
+      if (!validateFile(file)) {
+        input.value = ""; // Reset input
+        return;
+      }
+
       setFiles({ ...files, [field]: file });
 
       const previewUrl = URL.createObjectURL(file);
       const previewField =
         field === "invoice_file" ? "invoice_preview" : "warranty_card_preview";
       setFilePreviews({ ...filePreviews, [previewField]: previewUrl });
+
+      // toast.success(
+      //   `File uploaded: ${file.name} (${formatFileSize(file.size)})`
+      // );
     }
   };
 
@@ -297,6 +351,19 @@ export default function WarrantyPage() {
       return;
     }
 
+    if (!files.invoice_file || !files.warranty_card_file) {
+      toast.error("Please upload both invoice and warranty card files");
+      return;
+    }
+
+    // Final file validation before submit
+    if (
+      !validateFile(files.invoice_file) ||
+      !validateFile(files.warranty_card_file)
+    ) {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -347,7 +414,7 @@ export default function WarrantyPage() {
   if (success) {
     return (
       <div className="flex items-start justify-center p-3 sm:p-4">
-        <Card className="max-w-md w-full mt-10">
+        <Card className="max-w-md bg-primary/5 w-full mt-10">
           <CardHeader className="text-center space-y-3 sm:space-y-4 p-4 sm:p-6">
             <div className="mx-auto w-14 h-14 sm:w-16 sm:h-16 bg-green-600 rounded-full flex items-center justify-center">
               <CheckCircle className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
@@ -390,17 +457,22 @@ export default function WarrantyPage() {
     <div className="min-h-screen bg-primary/5 py-4 sm:py-6 lg:py-8 px-3 sm:px-4">
       <div className="max-w-5xl mx-auto">
         <div className="pb-3 sm:pb-4 border-b p-4 sm:p-6">
-          <div className="text-base sm:text-lg">Register Your Warranty</div>
-          <div className="text-xs sm:text-sm mt-1">
+          <div className="text-base sm:text-lg font-semibold">
+            Register Your Warranty
+          </div>
+          <div className="text-xs sm:text-sm mt-1 text-gray-600">
             Complete the form below to activate your 3-year warranty coverage
           </div>
+        
         </div>
 
         <div className="pt-4 sm:pt-6 p-4 sm:p-6">
           <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
-            {/* Customer Information */}
+            {/* Customer Information Section */}
             <div className="space-y-4 sm:space-y-5">
+          
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                {/* Full Name */}
                 <div>
                   <Label htmlFor="name" className="text-xs sm:text-sm">
                     Full Name <span className="text-red-500">*</span>
@@ -416,6 +488,7 @@ export default function WarrantyPage() {
                   />
                 </div>
 
+                {/* Email Address */}
                 <div>
                   <Label htmlFor="email" className="text-xs sm:text-sm">
                     Email Address <span className="text-red-500">*</span>
@@ -433,6 +506,7 @@ export default function WarrantyPage() {
                 </div>
               </div>
 
+              {/* Mobile Number with OTP Verification */}
               <div>
                 <Label htmlFor="mobile" className="text-xs sm:text-sm">
                   Mobile Number <span className="text-red-500">*</span>
@@ -519,7 +593,7 @@ export default function WarrantyPage() {
                   </Button>
                 )}
 
-                {/* OTP Input - Inline on Desktop */}
+                {/* OTP Input */}
                 {otpSent && !mobileVerified && (
                   <div className="mt-3">
                     <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
@@ -595,6 +669,7 @@ export default function WarrantyPage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                {/* City */}
                 <div>
                   <Label htmlFor="city" className="text-xs sm:text-sm">
                     City <span className="text-red-500">*</span>
@@ -610,6 +685,7 @@ export default function WarrantyPage() {
                   />
                 </div>
 
+                {/* Pincode */}
                 <div>
                   <Label htmlFor="pincode" className="text-xs sm:text-sm">
                     Pincode <span className="text-red-500">*</span>
@@ -627,10 +703,14 @@ export default function WarrantyPage() {
                   />
                 </div>
               </div>
-
+          
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                {/* Purchase Date */}
                 <div>
-                  <Label htmlFor="purchase-date" className="text-xs sm:text-sm">
+                  <Label
+                    htmlFor="purchase-date"
+                    className="text-xs sm:text-sm"
+                  >
                     Purchase Date <span className="text-red-500">*</span>
                   </Label>
                   <div className="relative mt-1">
@@ -692,8 +772,12 @@ export default function WarrantyPage() {
                   </div>
                 </div>
 
+                {/* Purchase Price */}
                 <div>
-                  <Label htmlFor="purchase_price" className="text-xs sm:text-sm">
+                  <Label
+                    htmlFor="purchase_price"
+                    className="text-xs sm:text-sm"
+                  >
                     Purchase Price (₹) <span className="text-red-500">*</span>
                   </Label>
                   <Input
@@ -707,42 +791,49 @@ export default function WarrantyPage() {
                     className="mt-1 h-9 sm:h-10 text-sm sm:text-base"
                   />
                 </div>
+
+                {/* Purchase From */}
                 <div>
-                <Label htmlFor="purchase_from" className="text-xs sm:text-sm">
-                  Purchase From <span className="text-red-500">*</span>
-                </Label>
-                <Select
-                  value={formData.purchase_from}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, purchase_from: value })
-                  }
-                  required
-                >
-                  <SelectTrigger className="mt-1 h-9 w-full sm:h-10 text-sm sm:text-sm">
-                    <SelectValue placeholder="Select platform" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {purchaseFromOptions.map((option) => (
-                      <SelectItem
-                        key={option.value}
-                        value={option.value}
-                        className="text-xs sm:text-sm"
-                      >
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <Label
+                    htmlFor="purchase_from"
+                    className="text-xs sm:text-sm"
+                  >
+                    Purchase From <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={formData.purchase_from}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, purchase_from: value })
+                    }
+                    required
+                  >
+                    <SelectTrigger className="mt-1 h-9 w-full sm:h-10 text-sm sm:text-sm">
+                      <SelectValue placeholder="Select platform" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {purchaseFromOptions.map((option) => (
+                        <SelectItem
+                          key={option.value}
+                          value={option.value}
+                          className="text-xs sm:text-sm"
+                        >
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
+      
 
-              </div>
-
-              
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 {/* Invoice File Upload */}
                 <div>
                   <Label htmlFor="invoice_file" className="text-xs sm:text-sm">
                     Invoice/Bill <span className="text-red-500">*</span>
+                    <span className="text-gray-500 ml-1">
+                      (Max {MAX_FILE_SIZE_MB}MB)
+                    </span>
                   </Label>
                   {!files.invoice_file ? (
                     <label
@@ -765,9 +856,14 @@ export default function WarrantyPage() {
                         ) : (
                           <ImageIcon className="w-4 h-4 text-primary shrink-0" />
                         )}
-                        <p className="text-xs text-gray-600 truncate flex-1">
-                          {files.invoice_file.name}
-                        </p>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-gray-600 truncate">
+                            {files.invoice_file.name}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {formatFileSize(files.invoice_file.size)}
+                          </p>
+                        </div>
                       </div>
                       <div className="flex gap-2 mt-1">
                         <Button
@@ -797,7 +893,7 @@ export default function WarrantyPage() {
                     id="invoice_file"
                     type="file"
                     required
-                    accept="image/*,.pdf"
+                    accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
                     onChange={(e) => handleFileChange(e, "invoice_file")}
                     className="hidden"
                   />
@@ -810,6 +906,9 @@ export default function WarrantyPage() {
                     className="text-xs sm:text-sm"
                   >
                     Warranty Card <span className="text-red-500">*</span>
+                    <span className="text-gray-500 ml-1">
+                      (Max {MAX_FILE_SIZE_MB}MB)
+                    </span>
                   </Label>
                   {!files.warranty_card_file ? (
                     <label
@@ -827,14 +926,20 @@ export default function WarrantyPage() {
                   ) : (
                     <div className="mt-1 bg-gray-50 border border-gray-300 rounded-md p-3 sm:p-4 flex flex-col gap-2">
                       <div className="flex items-center gap-2">
-                        {files.warranty_card_file.type === "application/pdf" ? (
+                        {files.warranty_card_file.type ===
+                        "application/pdf" ? (
                           <FileText className="w-4 h-4 text-primary shrink-0" />
                         ) : (
                           <ImageIcon className="w-4 h-4 text-primary shrink-0" />
                         )}
-                        <p className="text-xs text-gray-600 truncate flex-1">
-                          {files.warranty_card_file.name}
-                        </p>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-gray-600 truncate">
+                            {files.warranty_card_file.name}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {formatFileSize(files.warranty_card_file.size)}
+                          </p>
+                        </div>
                       </div>
                       <div className="flex gap-2 mt-1">
                         <Button
@@ -852,7 +957,9 @@ export default function WarrantyPage() {
                           variant="destructive"
                           size="sm"
                           className="flex-1 h-7 sm:h-8 text-xs"
-                          onClick={() => handleRemoveFile("warranty_card_file")}
+                          onClick={() =>
+                            handleRemoveFile("warranty_card_file")
+                          }
                         >
                           <X className="w-3 h-3 mr-1" />
                           Remove
@@ -864,7 +971,7 @@ export default function WarrantyPage() {
                     id="warranty_card_file"
                     type="file"
                     required
-                    accept="image/*,.pdf"
+                    accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
                     onChange={(e) => handleFileChange(e, "warranty_card_file")}
                     className="hidden"
                   />
@@ -877,12 +984,14 @@ export default function WarrantyPage() {
               <Button
                 type="submit"
                 disabled={loading || !mobileVerified}
-                className="w-auto bg-primary hover:bg-primary/80 text-white h-10 sm:h-11 disabled:opacity-50 text-sm sm:text-base px-8"
+                className="w-full sm:w-auto bg-primary hover:bg-primary/80 text-white h-10 sm:h-11 disabled:opacity-50 text-sm sm:text-base px-8"
               >
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    <span className="text-sm sm:text-base">Registering...</span>
+                    <span className="text-sm sm:text-base">
+                      Registering...
+                    </span>
                   </>
                 ) : !mobileVerified ? (
                   <span className="text-sm sm:text-base">
