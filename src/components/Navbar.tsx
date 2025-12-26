@@ -35,13 +35,10 @@ export default function Navbar() {
               onClick={handleLogoClick}
               className="flex items-center flex-shrink-0"
             >
-              <Image
+              <img
                 src="/ikigai-logo-white.png"
                 alt="IKIGAI Travel Gear"
-                width={140}
-                height={45}
                 className="h-6 sm:h-7 lg:h-8 w-auto transition-transform duration-300 "
-                priority
               />
             </Link>
 
