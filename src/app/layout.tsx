@@ -4,6 +4,7 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 import { usePathname } from "next/navigation";
 import { Toaster } from "sonner";
+import Footer from "@/components/Footer";
 
 
 const mulish = Mulish({
@@ -21,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <NavbarWrapper />
         <Toaster position="bottom-right" richColors />
         {children}
+        <FooterWrapper/>
       </body>
     </html>
   );
@@ -37,4 +39,16 @@ function NavbarWrapper() {
   if (isAdminRoute) return null;
   
   return <Navbar />;
+}
+
+function FooterWrapper() {
+  "use client";
+  const pathname = usePathname();
+  
+  // Hide navbar on admin routes
+  const isAdminRoute = pathname?.startsWith("/admin");
+  
+  if (isAdminRoute) return null;
+  
+  return <Footer />;
 }

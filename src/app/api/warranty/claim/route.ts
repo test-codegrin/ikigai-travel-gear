@@ -93,24 +93,6 @@ export async function POST(request: NextRequest) {
       ]
     )) as ResultSetHeader;
 
-    // Update warranty status to 'claimed'
-    const claimedStatus = (await query(
-      `SELECT id FROM warranty_statuses WHERE name = 'claimed' AND is_deleted = 0`
-    )) as RowDataPacket[];
-
-    if (claimedStatus && claimedStatus.length > 0) {
-      await query(
-        `UPDATE warranties SET warranty_status_id = ? WHERE id = ?`,
-        [claimedStatus[0].id, parseInt(warrantyId)]
-      );
-    }
-
-    // Add to claim history
-    await query(
-      `INSERT INTO claim_history (claim_id, claim_status_id, notes)
-       VALUES (?, ?, ?)`,
-      [result.insertId, pendingStatusId, "Claim submitted by customer"]
-    );
 
     return NextResponse.json(
       {

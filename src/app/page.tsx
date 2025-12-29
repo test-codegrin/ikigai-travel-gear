@@ -1,14 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import {
-  Globe,
+
   Check,
   Shield,
-  Package,
+
   Mail,
   Phone,
   MapPin,
@@ -21,7 +19,6 @@ import {
   Globe2,
   Cog,
   Loader2,
-  CheckCircle,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -35,48 +32,46 @@ export default function HomePage() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleContactSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+const handleContactSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    if (!contactForm.name || !contactForm.email || !contactForm.message) {
-      toast.error("Please fill in all fields");
-      return;
+  if (!contactForm.name || !contactForm.email || !contactForm.message) {
+    toast.error("Please fill in all fields");
+    return;
+  }
+
+  setIsSubmitting(true);
+
+  try {
+    const response = await fetch("/api/contact", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: contactForm.name,
+        email: contactForm.email,
+        message: contactForm.message,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || "Failed to send message");
     }
 
-    setIsSubmitting(true);
+    toast.success("Message sent successfully! We'll get back to you soon.");
+    setContactForm({ name: "", email: "", message: "" });
+  } catch (error) {
+    console.error("Contact form error:", error);
+    const message = error instanceof Error ? error.message : "Failed to send message. Please try again.";
+    toast.error(message);
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
-    try {
-      const response = await fetch("https://api.web3forms.com/submit", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({
-          access_key: process.env.NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY,
-          name: contactForm.name,
-          email: contactForm.email,
-          message: contactForm.message,
-          subject: "New Contact Form Submission - IKIGAI Travel Gear",
-          from_name: "IKIGAI Travel Gear Website",
-        }),
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        toast.success("Message sent successfully! We'll get back to you soon.");
-        setContactForm({ name: "", email: "", message: "" });
-      } else {
-        throw new Error("Failed to send message");
-      }
-    } catch (error) {
-      console.error("Contact form error:", error);
-      toast.error("Failed to send message. Please try again.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -549,17 +544,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-black text-white py-8 sm:py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <p className="text-gray-400 text-xs sm:text-sm">
-              &copy; {new Date().getFullYear()} IKIGAI Travel Gear. All rights
-              reserved.
-            </p>
-          </div>
-        </div>
-      </footer>
+     
     </main>
   );
 }

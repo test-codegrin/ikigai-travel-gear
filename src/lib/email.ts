@@ -487,3 +487,141 @@ export async function sendWarrantyStatusUpdate(
 
   await transporter.sendMail(mailOptions);
 }
+// Send Contact Form Email to Admin
+export async function sendContactFormEmail(
+  name: string,
+  email: string,
+  message: string
+) {
+  const adminEmail = process.env.ADMIN_EMAIL;
+
+  if (!adminEmail) {
+    throw new Error("ADMIN_EMAIL environment variable is not set");
+  }
+
+  const mailOptions = {
+    from: process.env.EMAIL_FROM,
+    to: adminEmail,
+    replyTo: email, // Allow admin to reply directly to the customer
+    subject: `New Contact Form Submission - ${name}`,
+    html: `
+      <div style="margin:0; padding:0; background-color:#f5f5f5;">
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Mulish:wght@400;600;700&display=swap');
+        </style>
+
+        <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#f5f5f5; padding:24px 0; font-family:'Mulish', Arial, sans-serif;">
+          <tr>
+            <td align="center">
+              <table width="600" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 2px 6px rgba(0,0,0,0.08); font-family:'Mulish', Arial, sans-serif;">
+                
+                <!-- Header with logo -->
+                <tr>
+                  <td style="padding:24px; border-bottom: 1px solid #e5e5e5;">
+                    <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+                      <tr>
+                        <td align="left">
+                          <img 
+                            src="https://ik.imagekit.io/devanpatel/logo/ikigai-logo.png" 
+                            alt="Ikigai Travel Gear" 
+                            style="height:25px; display:block;"
+                          />
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <!-- Body -->
+                <tr>
+                  <td style="padding:32px 24px 16px 24px; font-family:'Mulish', Arial, sans-serif;">
+                    <h1 style="margin:0 0 12px 0; font-size:22px; color:#000000; font-weight:600; line-height:1.4; font-family:'Mulish', Arial, sans-serif;">
+                      New Contact Form Submission
+                    </h1>
+                    <p style="margin:0 0 12px 0; font-size:15px; line-height:1.6; color:#000000; font-family:'Mulish', Arial, sans-serif;">
+                      You have received a new message from your website contact form.
+                    </p>
+                  </td>
+                </tr>
+
+                <!-- Contact Details -->
+                <tr>
+                  <td style="padding:0 24px 24px 24px; font-family:'Mulish', Arial, sans-serif;">
+                    <table cellpadding="0" cellspacing="0" role="presentation" style="width:100%; background-color:#f5f5f5; border-radius:6px; padding:16px;">
+                      <tr>
+                        <td style="padding:8px 0;">
+                          <table cellpadding="0" cellspacing="0" role="presentation" style="width:100%;">
+                            <tr>
+                              <td style="padding:8px 0; border-bottom:1px solid #e5e5e5;">
+                                <span style="font-size:13px; color:#666666; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; font-family:'Mulish', Arial, sans-serif; display:block; margin-bottom:4px;">
+                                  Name
+                                </span>
+                                <span style="font-size:15px; color:#000000; font-weight:600; font-family:'Mulish', Arial, sans-serif;">
+                                  ${name}
+                                </span>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding:8px 0; border-bottom:1px solid #e5e5e5;">
+                                <span style="font-size:13px; color:#666666; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; font-family:'Mulish', Arial, sans-serif; display:block; margin-bottom:4px;">
+                                  Email
+                                </span>
+                                <a href="mailto:${email}" style="font-size:15px; color:#f29559; font-weight:600; font-family:'Mulish', Arial, sans-serif; text-decoration:none;">
+                                  ${email}
+                                </a>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding:12px 0 0 0;">
+                                <span style="font-size:13px; color:#666666; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; font-family:'Mulish', Arial, sans-serif; display:block; margin-bottom:8px;">
+                                  Message
+                                </span>
+                                <div style="font-size:15px; color:#000000; line-height:1.6; font-family:'Mulish', Arial, sans-serif; background-color:#ffffff; padding:12px; border-radius:4px; border:1px solid #e5e5e5;">
+                                  ${message.replace(/\n/g, '<br/>')}
+                                </div>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <!-- Divider -->
+                <tr>
+                  <td style="padding:0 24px;">
+                    <div style="height:1px; background-color:#e5e5e5;"></div>
+                  </td>
+                </tr>
+
+                <!-- Action Button -->
+                <tr>
+                  <td style="padding:24px; text-align:center; font-family:'Mulish', Arial, sans-serif;">
+                    <a href="mailto:${email}?subject=Re: Contact Form Inquiry" style="display:inline-block; background-color:#f29559; color:#ffffff; padding:12px 32px; border-radius:6px; text-decoration:none; font-size:14px; font-weight:600; font-family:'Mulish', Arial, sans-serif;">
+                      Reply to ${name}
+                    </a>
+                  </td>
+                </tr>
+
+                <!-- Footer note -->
+                <tr>
+                  <td style="padding:20px 24px; background-color:#f5f5f5; font-family:'Mulish', Arial, sans-serif;">
+                    <p style="margin:0; font-size:12px; line-height:1.5; color:#666666; text-align:center; font-family:'Mulish', Arial, sans-serif;">
+                      This email was sent from your website contact form on Ikigai Travel Gear.<br/>
+                      Received on ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST
+                    </p>
+                  </td>
+                </tr>
+
+              </table>
+            </td>
+          </tr>
+        </table>
+      </div>
+    `,
+  };
+
+  await transporter.sendMail(mailOptions);
+}
+
