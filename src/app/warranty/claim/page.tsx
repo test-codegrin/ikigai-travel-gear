@@ -24,6 +24,8 @@ import {
   Search,
   AlertCircle,
   Video,
+  LocateFixed,
+  FileSearch,
 } from "lucide-react";
 import {
   Dialog,
@@ -440,6 +442,7 @@ export default function WarrantyClaimPage() {
                     disabled={searchLoading}
                     className="hidden sm:flex h-9 sm:h-10 px-4 sm:px-6 shrink-0 text-xs sm:text-sm"
                   >
+                    <FileSearch/>
                     Find Warranty ID
                   </Button>
                    <Button
@@ -449,8 +452,8 @@ export default function WarrantyClaimPage() {
                     disabled={searchLoading}
                     className="hidden sm:flex h-9 sm:h-10 px-4 sm:px-6 shrink-0 text-xs sm:text-sm"
                   >
-                  
-                    Track You Claim
+                  <LocateFixed/>
+                    Track Your Claim
                   </Button>
                 </div>
               ) : (
