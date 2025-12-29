@@ -10,8 +10,15 @@ import {
   FileText,
   AlertCircle,
   TrendingUp,
-  Search,
+  TrendingDown,
   Eye,
+  Shield,
+  CheckCircle,
+  Clock,
+  MapPin,
+  ArrowUpRight,
+  ArrowDownRight,
+  FileWarning,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { API } from "@/lib/api-endpoints";
@@ -41,26 +48,51 @@ interface Stats {
   active: number;
   claimed: number;
   thisMonth: number;
+  growthPercentage: number;
+  totalClaims: number;
+  pendingClaims: number;
+  approvedClaimsThisMonth: number;
+}
+
+interface CityData {
+  customer_city: string;
+  count: number;
+}
+
+interface RecentClaim {
+  claim_external_id: string;
+  claim_register_date: string;
+  status_name: string;
+  customer_name: string;
+  warranty_id: string;
 }
 
 export default function AdminDashboardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [warranties, setWarranties] = useState<Warranty[]>([]);
+  const [topCities, setTopCities] = useState<CityData[]>([]);
+  const [recentClaims, setRecentClaims] = useState<RecentClaim[]>([]);
   const [stats, setStats] = useState<Stats>({
     total: 0,
     active: 0,
     claimed: 0,
     thisMonth: 0,
+    growthPercentage: 0,
+    totalClaims: 0,
+    pendingClaims: 0,
+    approvedClaimsThisMonth: 0,
   });
 
   useEffect(() => {
-    fetchWarranties();
+    fetchDashboardData();
   }, []);
 
-  const fetchWarranties = async () => {
+  const fetchDashboardData = async () => {
     try {
-      const response = await fetch(API.DASHBOARD);
+      const response = await fetch(API.DASHBOARD, {
+        credentials: "include",
+      });
 
       if (!response.ok) {
         router.push("/admin/login");
@@ -69,9 +101,11 @@ export default function AdminDashboardPage() {
 
       const data = await response.json();
       setWarranties(data.warranties);
-      setStats(data.stats); // Set stats from API response
+      setStats(data.stats);
+      setTopCities(data.topCities || []);
+      setRecentClaims(data.recentClaims || []);
     } catch (error) {
-      console.error("Failed to fetch warranties:", error);
+      console.error("Failed to fetch dashboard data:", error);
     } finally {
       setLoading(false);
     }
@@ -85,55 +119,80 @@ export default function AdminDashboardPage() {
     );
   }
 
-
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case "registered":
         return "bg-green-100 text-green-800 border-green-200";
       case "claimed":
         return "bg-orange-100 text-orange-800 border-orange-200";
-      case "expired":
+      case "under_review":
+        return "bg-blue-100 text-blue-800 border-blue-200";
+      case "approved":
+        return "bg-green-100 text-green-800 border-green-200";
+      case "rejected":
+        return "bg-red-100 text-red-800 border-red-200";
+      case "completed":
         return "bg-gray-100 text-gray-800 border-gray-200";
       default:
         return "bg-blue-100 text-blue-800 border-blue-200";
     }
   };
 
+  const formatDate = (dateString: string) => {
+    const dateWithoutZ = dateString.replace("Z", "");
+    const date = new Date(dateWithoutZ);
+    return date.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
   return (
     <div className="space-y-6">
-      {/* Stats Grid */}
+     
+
+      {/* Primary Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-l-4 border-l-primary">
+        {/* Total Warranties */}
+        <Card className="border-l-4 border-l-blue-500 hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium text-gray-600">
               Total Warranties
             </CardTitle>
-            <Package className="w-5 h-5 text-primary" />
+            <Package className="w-5 h-5 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900">
-              {stats.total}
+            <div className="text-3xl font-bold text-gray-900">
+              {stats.total.toLocaleString()}
             </div>
             <p className="text-xs text-gray-500 mt-1">All time registrations</p>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-green-500">
+        {/* Active Warranties */}
+        <Card className="border-l-4 border-l-green-500 hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium text-gray-600">
               Active Warranties
             </CardTitle>
-            <FileText className="w-5 h-5 text-green-600" />
+            <Shield className="w-5 h-5 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900">
-              {stats.active}
+            <div className="text-3xl font-bold text-gray-900">
+              {stats.active.toLocaleString()}
             </div>
-            <p className="text-xs text-gray-500 mt-1">Currently active</p>
+            <div className="flex items-center gap-1 mt-1">
+              <span className="text-xs text-green-600 font-medium">
+                {((stats.active / stats.total) * 100).toFixed(1)}%
+              </span>
+              <span className="text-xs text-gray-500">of total</span>
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-orange-500">
+        {/* Claimed Warranties */}
+        <Card className="border-l-4 border-l-orange-500 hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium text-gray-600">
               Claims Filed
@@ -141,48 +200,237 @@ export default function AdminDashboardPage() {
             <AlertCircle className="w-5 h-5 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900">
-              {stats.claimed}
+            <div className="text-3xl font-bold text-gray-900">
+              {stats.totalClaims.toLocaleString()}
             </div>
-            <p className="text-xs text-gray-500 mt-1">Pending review</p>
+            <p className="text-xs text-orange-600 font-medium mt-1">
+              {stats.pendingClaims} pending review
+            </p>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-blue-500">
+        {/* This Month Growth */}
+        <Card className="border-l-4 border-l-purple-500 hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium text-gray-600">
               This Month
             </CardTitle>
-            <TrendingUp className="w-5 h-5 text-blue-600" />
+            {stats.growthPercentage >= 0 ? (
+              <TrendingUp className="w-5 h-5 text-purple-600" />
+            ) : (
+              <TrendingDown className="w-5 h-5 text-red-600" />
+            )}
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900">
-              {stats.thisMonth}
+            <div className="text-3xl font-bold text-gray-900">
+              {stats.thisMonth.toLocaleString()}
             </div>
-            <p className="text-xs text-gray-500 mt-1">New registrations</p>
+            <div className="flex items-center gap-1 mt-1">
+              {stats.growthPercentage >= 0 ? (
+                <>
+                  <ArrowUpRight className="w-3 h-3 text-green-600" />
+                  <span className="text-xs text-green-600 font-medium">
+                    +{stats.growthPercentage}%
+                  </span>
+                </>
+              ) : (
+                <>
+                  <ArrowDownRight className="w-3 h-3 text-red-600" />
+                  <span className="text-xs text-red-600 font-medium">
+                    {stats.growthPercentage}%
+                  </span>
+                </>
+              )}
+              <span className="text-xs text-gray-500">vs last month</span>
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Warranties Table */}
+      {/* Secondary Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Approved Claims This Month */}
+        <Card className="hover:shadow-md transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Approved Claims
+            </CardTitle>
+            <CheckCircle className="w-4 h-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-gray-900">
+              {stats.approvedClaimsThisMonth}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">This month</p>
+          </CardContent>
+        </Card>
+
+        {/* Pending Claims */}
+        <Card className="hover:shadow-md transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Pending Review
+            </CardTitle>
+            <Clock className="w-4 h-4 text-orange-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-gray-900">
+              {stats.pendingClaims}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">Awaiting action</p>
+          </CardContent>
+        </Card>
+
+        {/* Claim Rate */}
+        <Card className="hover:shadow-md transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Claim Rate
+            </CardTitle>
+            <FileText className="w-4 h-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-gray-900">
+              {stats.total > 0
+                ? ((stats.totalClaims / stats.total) * 100).toFixed(1)
+                : 0}
+              %
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Of total warranties
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Two Column Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Top Cities */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-gray-600" />
+                Top Cities
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push("/admin/warranties")}
+              >
+                View All
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {topCities.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-4">
+                  No data available
+                </p>
+              ) : (
+                topCities.map((city, index) => (
+                  <div
+                    key={city.customer_city}
+                    className="flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-600 font-semibold text-sm">
+                        {index + 1}
+                      </div>
+                      <span className="text-sm font-medium text-gray-900">
+                        {city.customer_city}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-gray-900">
+                        {city.count}
+                      </span>
+                      <span className="text-xs text-gray-500">warranties</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Recent Claims */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <FileWarning className="w-5 h-5 text-gray-600" />
+                Recent Claims
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push("/admin/claims")}
+              >
+                View All
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {recentClaims.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-4">
+                  No recent claims
+                </p>
+              ) : (
+                recentClaims.map((claim) => (
+                  <div
+                    key={claim.claim_external_id}
+                    className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                    onClick={() =>
+                      router.push(`/admin/claims/${claim.claim_external_id}`)
+                    }
+                  >
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900">
+                        {claim.customer_name}
+                      </p>
+                      <p className="text-xs text-gray-500 font-mono">
+                        {claim.claim_external_id}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        {formatDate(claim.claim_register_date)}
+                      </p>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={`${getStatusColor(claim.status_name)} capitalize`}
+                    >
+                      {claim.status_name.replace(/_/g, " ")}
+                    </Badge>
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent Warranties Table */}
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <CardTitle className="text-xl">Recent Warranties</CardTitle>
               <p className="text-sm text-gray-500 mt-1">
-                Manage and track warranty registrations
+                Latest warranty registrations
               </p>
             </div>
-            <div>
-              <Button variant="outline" onClick={()=>router.push("/admin/warranties")}>View All</Button>
-            </div>
-           
+            <Button
+              variant="outline"
+              onClick={() => router.push("/admin/warranties")}
+            >
+              View All
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
-      
-          {/* Table */}
           <div className="border rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -214,10 +462,7 @@ export default function AdminDashboardPage() {
                 <tbody className="divide-y divide-gray-200 bg-white">
                   {warranties.length === 0 ? (
                     <tr>
-                      <td
-                        colSpan={7}
-                        className="py-8 text-center text-gray-500"
-                      >
+                      <td colSpan={7} className="py-8 text-center text-gray-500">
                         No warranties found
                       </td>
                     </tr>
@@ -249,7 +494,7 @@ export default function AdminDashboardPage() {
                         </td>
                         <td className="py-3 px-4">
                           <span className="text-sm font-medium text-gray-900">
-                            ₹{warranty.purchase_price}
+                            ₹{warranty.purchase_price.toLocaleString("en-IN")}
                           </span>
                         </td>
                         <td className="py-3 px-4">
@@ -263,13 +508,7 @@ export default function AdminDashboardPage() {
                           </Badge>
                         </td>
                         <td className="py-3 px-4 text-sm text-gray-600">
-                          {new Date(
-                            warranty.registration_date
-                          ).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
+                          {formatDate(warranty.registration_date)}
                         </td>
                         <td className="py-3 px-4">
                           <Button
@@ -294,11 +533,10 @@ export default function AdminDashboardPage() {
             </div>
           </div>
 
-          {/* Pagination info */}
           {warranties.length > 0 && (
             <div className="mt-4 text-sm text-gray-500 text-center">
-              Showing {Math.min(warranties.length, 10)} of {stats.total}{" "}
-              total warranties
+              Showing {Math.min(warranties.length, 10)} of {stats.total} total
+              warranties
             </div>
           )}
         </CardContent>

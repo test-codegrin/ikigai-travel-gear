@@ -21,6 +21,7 @@ interface WarrantyDetail extends RowDataPacket {
   status_name: string;
   registration_date: string;
   created_at: string;
+  claim_external_id: string | null;
 }
 
 interface WarrantyStatus extends RowDataPacket {
@@ -42,14 +43,17 @@ export async function GET(
     const { id } = await params;
     const warrantyId = id;
 
-    // Fetch warranty detail with status name - FIXED: column is 'name' not 'status_name'
+    // Fetch warranty detail with status name and claim external_id
     const warranty = await selectQuery<WarrantyDetail>(
       `SELECT 
         w.*,
-        ws.name as status_name
+        ws.name as status_name,
+        c.claim_external_id
       FROM warranties w
       LEFT JOIN warranty_statuses ws ON w.warranty_status_id = ws.id
-      WHERE w.external_id = ? AND w.is_deleted = FALSE`,
+      LEFT JOIN claims c ON c.warranty_id = w.id AND c.is_deleted = 0
+      WHERE w.external_id = ? AND w.is_deleted = 0
+      LIMIT 1`,
       [warrantyId]
     );
 
@@ -62,7 +66,7 @@ export async function GET(
 
     // Fetch all available statuses
     const statuses = await selectQuery<WarrantyStatus>(
-      `SELECT id, name FROM warranty_statuses WHERE is_deleted = FALSE ORDER BY id`
+      `SELECT id, name FROM warranty_statuses WHERE is_deleted = 0 ORDER BY id`
     );
 
     return NextResponse.json(

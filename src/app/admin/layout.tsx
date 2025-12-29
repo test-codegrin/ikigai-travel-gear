@@ -12,6 +12,7 @@ import {
   X,
   User,
   Settings,
+  FileBox,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -38,7 +39,7 @@ import { toast } from "sonner";
 const navigation = [
   { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
   { name: "Warranties", href: "/admin/warranties", icon: FileText },
-  { name: "Settings", href: "/admin/settings", icon: Settings },
+  { name: "Claims", href: "/admin/claims", icon: FileBox },
 ];
 
 interface Admin {

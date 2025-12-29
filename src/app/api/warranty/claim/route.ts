@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 import { saveFile } from "@/lib/file-upload";
+import { sendClaimConfirmation } from "@/lib/email";
 
 // Generate claim external ID
 function generateClaimExternalId(): string {
@@ -53,6 +54,23 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Get warranty details for email
+    const warrantyDetails = (await query(
+      `SELECT w.external_id, w.customer_name, w.customer_email 
+       FROM warranties w 
+       WHERE w.id = ? AND w.is_deleted = 0`,
+      [parseInt(warrantyId)]
+    )) as RowDataPacket[];
+
+    if (!warrantyDetails || warrantyDetails.length === 0) {
+      return NextResponse.json(
+        { error: "Warranty not found" },
+        { status: 404 }
+      );
+    }
+
+    const warranty = warrantyDetails[0];
+
     // Upload photo using saveFile utility
     const photoUpload = await saveFile(photoFile, "claim-photo");
 
@@ -93,6 +111,18 @@ export async function POST(request: NextRequest) {
       ]
     )) as ResultSetHeader;
 
+    // Send confirmation email
+    try {
+      await sendClaimConfirmation(
+        warranty.customer_email,
+        warranty.customer_name,
+        claimExternalId,
+        warranty.external_id
+      );
+    } catch (emailError) {
+      console.error("Failed to send claim confirmation email:", emailError);
+      // Don't fail the request if email fails
+    }
 
     return NextResponse.json(
       {

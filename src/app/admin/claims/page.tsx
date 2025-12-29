@@ -37,6 +37,10 @@ import {
   Calendar as CalendarIcon,
   Check,
   ChevronsUpDown,
+  ClipboardList,
+  Clock,
+  CheckCircle2,
+  CalendarDays,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { API } from "@/lib/api-endpoints";
@@ -45,27 +49,30 @@ import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
 import { useDebounce } from "@/hooks/useDebounce";
 
-interface Warranty {
+interface Claim {
   id: number;
-  external_id: string;
+  warranty_id: number;
+  claim_external_id: string;
+  warranty_external_id: string;
   customer_name: string;
   customer_email: string;
   customer_mobile: string;
   customer_address: string;
   customer_city: string;
   customer_pincode: number;
+  defect_description: string;
+  photo_url: string;
+  video_url: string | null;
+  claim_status_name: string;
+  admin_notes: string | null;
+  claim_register_date: string;
+  claim_result_date: string | null;
   purchase_date: string;
   purchase_price: number;
   purchase_from: string;
-  invoice_file_url: string;
-  warranty_card_file_url: string;
-  warranty_status_id: number;
-  registration_date: string;
-  is_deleted: number;
-  status_name: string;
 }
 
-interface WarrantyStatus {
+interface ClaimStatus {
   id: number;
   name: string;
   description: string;
@@ -80,18 +87,37 @@ interface Pagination {
   hasPreviousPage: boolean;
 }
 
+interface Stats {
+  total: number;
+  pending: number;
+  approved: number;
+  rejected: number;
+  shipped: number;
+  completed: number;
+  thisMonth: number;
+}
+
 interface Filters {
   cities: string[];
   statuses: string[];
   purchaseFromOptions: string[];
 }
 
-export default function WarrantiesPage() {
+export default function ClaimsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
-  const [warranties, setWarranties] = useState<Warranty[]>([]);
-  const [warrantyStatuses, setWarrantyStatuses] = useState<WarrantyStatus[]>([]);
+  const [claims, setClaims] = useState<Claim[]>([]);
+  const [claimStatuses, setClaimStatuses] = useState<ClaimStatus[]>([]);
+  const [stats, setStats] = useState<Stats>({
+    total: 0,
+    pending: 0,
+    approved: 0,
+    rejected: 0,
+    shipped: 0,
+    completed: 0,
+    thisMonth: 0,
+  });
   const [pagination, setPagination] = useState<Pagination>({
     currentPage: 1,
     totalPages: 0,
@@ -119,13 +145,12 @@ export default function WarrantiesPage() {
   // Debounced search query - 500ms delay
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
 
-  // Fetch warranty statuses on mount
   useEffect(() => {
-    fetchWarrantyStatuses();
+    fetchClaimStatuses();
   }, []);
 
   useEffect(() => {
-    fetchWarranties();
+    fetchClaims();
   }, [
     pagination.currentPage,
     pagination.limit,
@@ -137,21 +162,19 @@ export default function WarrantiesPage() {
     dateTo,
   ]);
 
-  const fetchWarrantyStatuses = async () => {
+  const fetchClaimStatuses = async () => {
     try {
-      const response = await fetch(API.WARRANTY_STATUSES, {
-        credentials: "include",
-      });
+      const response = await fetch(API.CLAIM_STATUSES);
       if (response.ok) {
         const data = await response.json();
-        setWarrantyStatuses(data.statuses);
+        setClaimStatuses(data.statuses);
       }
     } catch (error) {
-      console.error("Failed to fetch warranty statuses:", error);
+      console.error("Failed to fetch claim statuses:", error);
     }
   };
 
-  const fetchWarranties = async () => {
+  const fetchClaims = async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams({
@@ -162,13 +185,14 @@ export default function WarrantiesPage() {
       if (debouncedSearchQuery) params.append("search", debouncedSearchQuery);
       if (selectedStatus && selectedStatus.trim())
         params.append("status", selectedStatus);
-      if (selectedCity && selectedCity.trim()) params.append("city", selectedCity);
+      if (selectedCity && selectedCity.trim())
+        params.append("city", selectedCity);
       if (selectedPurchaseFrom && selectedPurchaseFrom.trim())
         params.append("purchase_from", selectedPurchaseFrom);
       if (dateFrom) params.append("date_from", format(dateFrom, "yyyy-MM-dd"));
       if (dateTo) params.append("date_to", format(dateTo, "yyyy-MM-dd"));
 
-      const response = await fetch(`${API.WARRANTIES}?${params.toString()}`);
+      const response = await fetch(`${API.CLAIMS}?${params.toString()}`);
 
       if (!response.ok) {
         router.push(API.LOGIN);
@@ -176,11 +200,12 @@ export default function WarrantiesPage() {
       }
 
       const data = await response.json();
-      setWarranties(data.warranties);
+      setClaims(data.claims);
       setPagination(data.pagination);
       setFilters(data.filters);
+      setStats(data.stats);
     } catch (error) {
-      console.error("Failed to fetch warranties:", error);
+      console.error("Failed to fetch claims:", error);
     } finally {
       setLoading(false);
     }
@@ -198,37 +223,46 @@ export default function WarrantiesPage() {
       if (debouncedSearchQuery) params.append("search", debouncedSearchQuery);
       if (selectedStatus && selectedStatus.trim())
         params.append("status", selectedStatus);
-      if (selectedCity && selectedCity.trim()) params.append("city", selectedCity);
+      if (selectedCity && selectedCity.trim())
+        params.append("city", selectedCity);
       if (selectedPurchaseFrom && selectedPurchaseFrom.trim())
         params.append("purchase_from", selectedPurchaseFrom);
       if (dateFrom) params.append("date_from", format(dateFrom, "yyyy-MM-dd"));
       if (dateTo) params.append("date_to", format(dateTo, "yyyy-MM-dd"));
 
-      const response = await fetch(`${API.WARRANTIES}?${params.toString()}`);
+      const response = await fetch(`${API.CLAIMS}?${params.toString()}`);
       const data = await response.json();
 
-      const exportData = data.warranties.map((warranty: Warranty) => ({
-        "Warranty ID": warranty.external_id,
-        "Customer Name": warranty.customer_name,
-        Email: warranty.customer_email,
-        Mobile: warranty.customer_mobile,
-        Address: warranty.customer_address,
-        City: warranty.customer_city,
-        Pincode: warranty.customer_pincode,
-        "Purchase Date": new Date(warranty.purchase_date).toLocaleDateString(
+      const exportData = data.claims.map((claim: Claim) => ({
+        "Claim ID": claim.claim_external_id,
+        "Warranty ID": claim.warranty_external_id,
+        "Customer Name": claim.customer_name,
+        Email: claim.customer_email,
+        Mobile: claim.customer_mobile,
+        Address: claim.customer_address,
+        City: claim.customer_city,
+        Pincode: claim.customer_pincode,
+        "Defect Description": claim.defect_description,
+        "Purchase Date": new Date(claim.purchase_date).toLocaleDateString(
           "en-IN"
         ),
-        "Purchase Price": warranty.purchase_price,
-        "Purchase From": warranty.purchase_from.replace(/_/g, " "),
-        Status: warranty.status_name,
-        "Registration Date": new Date(
-          warranty.registration_date
-        ).toLocaleDateString("en-IN"),
+        "Purchase Price": claim.purchase_price,
+        "Purchase From": claim.purchase_from.replace(/_/g, " "),
+        "Claim Status": claim.claim_status_name.replace(/_/g, " "),
+        "Claim Date": new Date(claim.claim_register_date).toLocaleDateString(
+          "en-IN"
+        ),
+        "Result Date": claim.claim_result_date
+          ? new Date(claim.claim_result_date).toLocaleDateString("en-IN")
+          : "N/A",
+        "Admin Notes": claim.admin_notes || "N/A",
+        "Has Photo": claim.photo_url ? "Yes" : "No",
+        "Has Video": claim.video_url ? "Yes" : "No",
       }));
 
       const worksheet = XLSX.utils.json_to_sheet(exportData);
       const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Warranties");
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Claims");
 
       const maxWidth = 50;
       if (exportData.length > 0) {
@@ -247,10 +281,7 @@ export default function WarrantiesPage() {
         worksheet["!cols"] = colWidths;
       }
 
-      const fileName = `warranties_${format(
-        new Date(),
-        "yyyy-MM-dd_HHmmss"
-      )}.xlsx`;
+      const fileName = `claims_${format(new Date(), "yyyy-MM-dd_HHmmss")}.xlsx`;
 
       XLSX.writeFile(workbook, fileName);
     } catch (error) {
@@ -283,7 +314,6 @@ export default function WarrantiesPage() {
     setPagination((prev) => ({ ...prev, currentPage: 1 }));
   };
 
-  // Fixed filter counting logic - only count non-empty values
   const hasActiveFilters = Boolean(
     (searchQuery && searchQuery.trim()) ||
       (selectedStatus && selectedStatus.trim()) ||
@@ -303,29 +333,25 @@ export default function WarrantiesPage() {
   ].filter(Boolean).length;
 
   const getStatusColor = (status: string) => {
-    if (!status) return "bg-gray-100 text-gray-800 border-gray-200";
-
     switch (status.toLowerCase()) {
-      case "registered":
-        return "bg-green-100 text-green-800 border-green-200";
-      case "claimed":
-        return "bg-orange-100 text-orange-800 border-orange-200";
-      case "approved":
+      case "pending":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "under_review":
         return "bg-blue-100 text-blue-800 border-blue-200";
+      case "approved":
+        return "bg-green-100 text-green-800 border-green-200";
       case "rejected":
         return "bg-red-100 text-red-800 border-red-200";
-      case "repaired":
+      case "shipped":
         return "bg-purple-100 text-purple-800 border-purple-200";
-      case "replaced":
-        return "bg-indigo-100 text-indigo-800 border-indigo-200";
-      case "closed":
+      case "completed":
         return "bg-gray-100 text-gray-800 border-gray-200";
       default:
         return "bg-blue-100 text-blue-800 border-blue-200";
     }
   };
 
-  if (loading && warranties.length === 0) {
+  if (loading && claims.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -335,6 +361,73 @@ export default function WarrantiesPage() {
 
   return (
     <div className="space-y-6">
+      {/* Stats Cards - Smaller Version */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-gray-600">Total Claims</p>
+                <p className="text-xl font-bold text-gray-900 mt-1">
+                  {stats.total}
+                </p>
+              </div>
+              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                <ClipboardList className="w-5 h-5 text-blue-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-gray-600">Pending</p>
+                <p className="text-xl font-bold text-yellow-600 mt-1">
+                  {stats.pending}
+                </p>
+              </div>
+              <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
+                <Clock className="w-5 h-5 text-yellow-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-gray-600">Approved</p>
+                <p className="text-xl font-bold text-green-600 mt-1">
+                  {stats.approved}
+                </p>
+              </div>
+              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                <CheckCircle2 className="w-5 h-5 text-green-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-gray-600">This Month</p>
+                <p className="text-xl font-bold text-primary mt-1">
+                  {stats.thisMonth}
+                </p>
+              </div>
+              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                <CalendarDays className="w-5 h-5 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Top Bar with Search and Actions */}
       <div className="flex flex-col sm:flex-row gap-4">
         {/* Search Bar */}
@@ -342,7 +435,7 @@ export default function WarrantiesPage() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <Input
-              placeholder="Search by ID, name, email, or mobile..."
+              placeholder="Search by claim ID, warranty ID, name, email, or mobile..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -375,7 +468,7 @@ export default function WarrantiesPage() {
             variant="outline"
             size="default"
             onClick={handleExportToExcel}
-            disabled={exporting || warranties.length === 0}
+            disabled={exporting || claims.length === 0}
             className="gap-2"
           >
             {exporting ? (
@@ -403,14 +496,13 @@ export default function WarrantiesPage() {
                   onValueChange={(value) =>
                     setSelectedStatus(value === "all" ? "" : value)
                   }
-                
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="All statuses" />
                   </SelectTrigger>
                   <SelectContent className="w-full">
                     <SelectItem value="all">All statuses</SelectItem>
-                    {warrantyStatuses.map((status) => (
+                    {claimStatuses.map((status) => (
                       <SelectItem key={status.id} value={status.name}>
                         {status.name.replace(/_/g, " ").charAt(0).toUpperCase() +
                           status.name.replace(/_/g, " ").slice(1)}
@@ -593,16 +685,16 @@ export default function WarrantiesPage() {
         </Card>
       )}
 
-      {/* Warranties Table */}
+      {/* Claims Table */}
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <CardTitle className="text-lg">
-                {pagination.totalRecords} Warranties
+                {pagination.totalRecords} {pagination.totalRecords<=1 ?"Claim":"Claims"}
               </CardTitle>
               <p className="text-sm text-gray-500 mt-1">
-                Showing {warranties.length} of {pagination.totalRecords} results
+                Showing {claims.length} of {pagination.totalRecords} results
               </p>
             </div>
 
@@ -633,6 +725,9 @@ export default function WarrantiesPage() {
                 <thead className="bg-gray-50 border-b">
                   <tr>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Claim ID
+                    </th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Warranty ID
                     </th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
@@ -640,12 +735,6 @@ export default function WarrantiesPage() {
                     </th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       City
-                    </th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Price
-                    </th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Purchase From
                     </th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Status
@@ -661,65 +750,63 @@ export default function WarrantiesPage() {
                 <tbody className="divide-y divide-gray-200 bg-white">
                   {loading ? (
                     <tr>
-                      <td colSpan={8} className="py-8 text-center">
+                      <td colSpan={7} className="py-8 text-center">
                         <Loader2 className="w-6 h-6 animate-spin text-primary mx-auto" />
                       </td>
                     </tr>
-                  ) : warranties.length === 0 ? (
+                  ) : claims.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-8 text-center text-gray-500">
-                        No warranties found
+                      <td
+                        colSpan={7}
+                        className="py-8 text-center text-gray-500"
+                      >
+                        No claims found
                       </td>
                     </tr>
                   ) : (
-                    warranties.map((warranty) => (
+                    claims.map((claim) => (
                       <tr
-                        key={warranty.id}
+                        key={claim.id}
                         className="hover:bg-gray-50 transition-colors"
                       >
                         <td className="py-3 px-4">
                           <span className="font-mono text-sm font-medium text-gray-900">
-                            {warranty.external_id}
+                            {claim.claim_external_id}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="font-mono text-xs text-gray-600">
+                            {claim.warranty_external_id}
                           </span>
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex flex-col">
                             <span className="text-sm font-medium text-gray-900">
-                              {warranty.customer_name}
+                              {claim.customer_name}
                             </span>
                             <span className="text-xs text-gray-500">
-                              {warranty.customer_email}
+                              {claim.customer_email}
                             </span>
                           </div>
                         </td>
                         <td className="py-3 px-4">
                           <span className="text-sm text-gray-700">
-                            {warranty.customer_city}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4">
-                          <span className="text-sm font-medium text-gray-900">
-                            ₹{warranty.purchase_price.toLocaleString()}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4">
-                          <span className="text-sm text-gray-700 capitalize">
-                            {warranty.purchase_from.replace(/_/g, " ")}
+                            {claim.customer_city}
                           </span>
                         </td>
                         <td className="py-3 px-4">
                           <Badge
                             variant="outline"
                             className={`${getStatusColor(
-                              warranty.status_name
+                              claim.claim_status_name
                             )} capitalize`}
                           >
-                            {warranty.status_name?.replace(/_/g, " ") || "Unknown"}
+                            {claim.claim_status_name.replace(/_/g, " ")}
                           </Badge>
                         </td>
                         <td className="py-3 px-4 text-sm text-gray-600">
                           {new Date(
-                            warranty.registration_date
+                            claim.claim_register_date
                           ).toLocaleDateString("en-IN", {
                             day: "2-digit",
                             month: "short",
@@ -733,7 +820,7 @@ export default function WarrantiesPage() {
                             className="gap-2"
                             onClick={() =>
                               router.push(
-                                `/admin/warranties/${warranty.external_id}`
+                                `/admin/claims/${claim.claim_external_id}`
                               )
                             }
                           >

@@ -27,6 +27,7 @@ import {
   FileText,
   Shield,
   Save,
+  FileWarning,
 } from "lucide-react";
 import { API } from "@/lib/api-endpoints";
 import { toast } from "sonner";
@@ -48,6 +49,7 @@ interface WarrantyDetail {
   warranty_status_id: number;
   status_name: string;
   registration_date: string;
+  claim_external_id: string | null;
 }
 
 interface WarrantyStatus {
@@ -125,6 +127,12 @@ export default function WarrantyDetailPage() {
     }
   };
 
+  const handleViewClaim = () => {
+    if (warranty?.claim_external_id) {
+      router.push(`/admin/claims/${warranty.claim_external_id}`);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case "registered":
@@ -146,21 +154,28 @@ export default function WarrantyDetailPage() {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-IN", {
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return "N/A";
+    const dateWithoutZ = dateString.replace("Z", "");
+    const date = new Date(dateWithoutZ);
+    return date.toLocaleDateString("en-IN", {
       day: "2-digit",
       month: "long",
       year: "numeric",
     });
   };
 
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-IN", {
+  const formatDateTime = (dateString: string | null | undefined) => {
+    if (!dateString) return "N/A";
+    const dateWithoutZ = dateString.replace("Z", "");
+    const date = new Date(dateWithoutZ);
+    return date.toLocaleString("en-IN", {
       day: "2-digit",
       month: "long",
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      hour12: true,
     });
   };
 
@@ -197,12 +212,17 @@ export default function WarrantyDetailPage() {
             </h1>
           </div>
           <p className="text-sm text-gray-500 ml-20">
-            Warranty ID: <span className="font-mono font-medium text-gray-900">{warranty.external_id}</span>
+            Warranty ID:{" "}
+            <span className="font-mono font-medium text-gray-900">
+              {warranty.external_id}
+            </span>
           </p>
         </div>
         <Badge
           variant="outline"
-          className={`${getStatusColor(warranty.status_name)} capitalize text-sm px-3 py-1.5 font-medium`}
+          className={`${getStatusColor(
+            warranty.status_name
+          )} capitalize text-sm px-3 py-1.5 font-medium`}
         >
           {warranty.status_name}
         </Badge>
@@ -216,7 +236,7 @@ export default function WarrantyDetailPage() {
             Warranty Status Management
           </CardTitle>
         </CardHeader>
-        <CardContent >
+        <CardContent className="pt-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4">
             <div className="flex-1 w-full sm:max-w-xs">
               <Label className="text-sm font-medium text-gray-700 mb-2 block">
@@ -250,6 +270,18 @@ export default function WarrantyDetailPage() {
               )}
               Update Status
             </Button>
+
+            {/* Conditional Claim Button */}
+            {warranty.claim_external_id && (
+              <Button
+                variant="outline"
+                onClick={handleViewClaim}
+                className="gap-2 w-full sm:w-auto"
+              >
+                <FileWarning className="w-4 h-4" />
+                View Claim Details
+              </Button>
+            )}
           </div>
           {selectedStatus !== warranty.warranty_status_id && (
             <p className="text-sm text-amber-600 mt-3 flex items-center gap-1.5">
@@ -413,7 +445,9 @@ export default function WarrantyDetailPage() {
                     variant="default"
                     size="sm"
                     className="gap-2 w-full"
-                    onClick={() => window.open(warranty.invoice_file_url, "_blank")}
+                    onClick={() =>
+                      window.open(warranty.invoice_file_url, "_blank")
+                    }
                   >
                     <ExternalLink className="w-4 h-4" />
                     View Invoice

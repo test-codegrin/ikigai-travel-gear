@@ -487,7 +487,7 @@ export default function WarrantyPage() {
                   </Label>
                   <div className="flex gap-2 mt-1">
                     <Select value={countryCode} onValueChange={setCountryCode}>
-                      <SelectTrigger className="w-20 sm:w-24 h-9 sm:h-10 text-xs sm:text-sm">
+                      <SelectTrigger className="w-auto h-auto text-xs sm:text-sm">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -495,7 +495,6 @@ export default function WarrantyPage() {
                           <SelectItem
                             key={country.code}
                             value={country.code}
-                            className="text-xs sm:text-sm"
                           >
                             {country.flag} {country.code}
                           </SelectItem>

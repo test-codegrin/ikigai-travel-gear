@@ -32,6 +32,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { FindWarrantyDialog } from "@/components/FindWarrantyDialog";
+import { useRouter } from "next/navigation";
 
 // File size limits
 const MAX_PHOTO_SIZE = 5 * 1024 * 1024; // 5MB
@@ -58,6 +59,7 @@ function formatDate(date: string): string {
 
 // Main Component
 export default function WarrantyClaimPage() {
+  const router = useRouter();
   const [searchLoading, setSearchLoading] = useState(false);
   const [warrantyFound, setWarrantyFound] = useState(false);
   const [warrantyId, setWarrantyId] = useState("");
@@ -119,6 +121,10 @@ export default function WarrantyClaimPage() {
     // Directly search with the external ID
     searchWarrantyById(externalId);
   };
+
+  const handleTrackClaim = ()=>{
+    router.push("/warranty/track-claim");
+  }
 
   // Separate search function that accepts ID parameter
   const searchWarrantyById = async (id: string) => {
@@ -435,6 +441,16 @@ export default function WarrantyClaimPage() {
                     className="hidden sm:flex h-9 sm:h-10 px-4 sm:px-6 shrink-0 text-xs sm:text-sm"
                   >
                     Find Warranty ID
+                  </Button>
+                   <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handleTrackClaim()}
+                    disabled={searchLoading}
+                    className="hidden sm:flex h-9 sm:h-10 px-4 sm:px-6 shrink-0 text-xs sm:text-sm"
+                  >
+                  
+                    Track You Claim
                   </Button>
                 </div>
               ) : (
