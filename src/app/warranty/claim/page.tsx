@@ -335,7 +335,7 @@ export default function WarrantyClaimPage() {
 
   if (success) {
     return (
-      <div className="flex items-start justify-center p-3 sm:p-4">
+      <div className="flex items-start h-screen justify-center p-3 sm:p-4">
         <Card className="max-w-md bg-primary/5 w-full mt-10">
           <CardHeader className="text-center space-y-3 sm:space-y-4 p-4 sm:p-6">
             <div className="mx-auto w-14 h-14 sm:w-16 sm:h-16 bg-green-600 rounded-full flex items-center justify-center">

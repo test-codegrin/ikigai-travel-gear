@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
 
     // Get pending status ID
     const statuses = (await query(
-      `SELECT id FROM claim_statuses WHERE name = 'pending' AND is_deleted = 0`
+      `SELECT id FROM claim_statuses WHERE name = 'under_review' AND is_deleted = 0`
     )) as RowDataPacket[];
 
     if (!statuses || statuses.length === 0) {
