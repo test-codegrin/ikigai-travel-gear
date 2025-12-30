@@ -28,9 +28,12 @@ import {
   Shield,
   Save,
   FileWarning,
+  Eye,
+  AlertCircle,
 } from "lucide-react";
 import { API } from "@/lib/api-endpoints";
 import { toast } from "sonner";
+import { convertToIST } from "@/lib/convertToIST";
 
 interface WarrantyDetail {
   id: number;
@@ -49,12 +52,22 @@ interface WarrantyDetail {
   warranty_status_id: number;
   status_name: string;
   registration_date: string;
-  claim_external_id: string | null;
 }
 
 interface WarrantyStatus {
   id: number;
   name: string;
+}
+
+interface ClaimInfo {
+  id: number;
+  claim_external_id: string;
+  claim_status_id: number;
+  claim_status_name: string;
+  claim_register_date: string;
+  claim_result_date: string | null;
+  defect_description: string;
+  admin_notes: string | null;
 }
 
 export default function WarrantyDetailPage() {
@@ -65,6 +78,7 @@ export default function WarrantyDetailPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [warranty, setWarranty] = useState<WarrantyDetail | null>(null);
+  const [claims, setClaims] = useState<ClaimInfo[]>([]);
   const [statuses, setStatuses] = useState<WarrantyStatus[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<number>(0);
 
@@ -87,6 +101,7 @@ export default function WarrantyDetailPage() {
 
       const data = await response.json();
       setWarranty(data.warranty);
+      setClaims(data.claims || []);
       setStatuses(data.statuses);
       setSelectedStatus(data.warranty.warranty_status_id);
     } catch (error) {
@@ -127,22 +142,24 @@ export default function WarrantyDetailPage() {
     }
   };
 
-  const handleViewClaim = () => {
-    if (warranty?.claim_external_id) {
-      router.push(`/admin/claims/${warranty.claim_external_id}`);
-    }
-  };
-
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case "registered":
         return "bg-green-100 text-green-800 border-green-200";
       case "claimed":
         return "bg-orange-100 text-orange-800 border-orange-200";
-      case "approved":
+      case "pending":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "under_review":
         return "bg-blue-100 text-blue-800 border-blue-200";
+      case "approved":
+        return "bg-green-100 text-green-800 border-green-200";
       case "rejected":
         return "bg-red-100 text-red-800 border-red-200";
+      case "shipped":
+        return "bg-purple-100 text-purple-800 border-purple-200";
+      case "completed":
+        return "bg-gray-100 text-gray-800 border-gray-200";
       case "repaired":
         return "bg-purple-100 text-purple-800 border-purple-200";
       case "replaced":
@@ -152,31 +169,6 @@ export default function WarrantyDetailPage() {
       default:
         return "bg-blue-100 text-blue-800 border-blue-200";
     }
-  };
-
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return "N/A";
-    const dateWithoutZ = dateString.replace("Z", "");
-    const date = new Date(dateWithoutZ);
-    return date.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    });
-  };
-
-  const formatDateTime = (dateString: string | null | undefined) => {
-    if (!dateString) return "N/A";
-    const dateWithoutZ = dateString.replace("Z", "");
-    const date = new Date(dateWithoutZ);
-    return date.toLocaleString("en-IN", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
   };
 
   if (loading) {
@@ -228,7 +220,7 @@ export default function WarrantyDetailPage() {
         </Badge>
       </div>
 
-      {/* Status Update Card */}
+      {/* Status Update & Claims Card */}
       <Card>
         <CardHeader className="border-b bg-gray-50">
           <CardTitle className="text-base flex items-center gap-2">
@@ -237,58 +229,129 @@ export default function WarrantyDetailPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4">
-            <div className="flex-1 w-full sm:max-w-xs">
-              <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                Current Status
-              </Label>
-              <Select
-                value={selectedStatus.toString()}
-                onValueChange={(value) => setSelectedStatus(parseInt(value))}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  {statuses.map((status) => (
-                    <SelectItem key={status.id} value={status.id.toString()}>
-                      {status.name.charAt(0).toUpperCase() + status.name.slice(1)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button
-              onClick={handleStatusUpdate}
-              disabled={saving || selectedStatus === warranty.warranty_status_id}
-              className="gap-2 w-full sm:w-auto"
-            >
-              {saving ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Save className="w-4 h-4" />
-              )}
-              Update Status
-            </Button>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Status Update Section */}
+            <div className="space-y-4">
+              <div>
+                <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                  Update Warranty Status
+                </Label>
+                <Select
+                  value={selectedStatus.toString()}
+                  onValueChange={(value) => setSelectedStatus(parseInt(value))}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statuses.map((status) => (
+                      <SelectItem key={status.id} value={status.id.toString()}>
+                        {status.name.charAt(0).toUpperCase() +
+                          status.name.slice(1)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            {/* Conditional Claim Button */}
-            {warranty.claim_external_id && (
               <Button
-                variant="outline"
-                onClick={handleViewClaim}
-                className="gap-2 w-full sm:w-auto"
+                onClick={handleStatusUpdate}
+                disabled={
+                  saving || selectedStatus === warranty.warranty_status_id
+                }
+                className="gap-2 w-full"
               >
-                <FileWarning className="w-4 h-4" />
-                View Claim Details
+                {saving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                Update Status
               </Button>
-            )}
+
+              {selectedStatus !== warranty.warranty_status_id && (
+                <p className="text-sm text-amber-600 flex items-center gap-1.5">
+                  <span className="w-1 h-1 bg-amber-600 rounded-full" />
+                  You have unsaved changes
+                </p>
+              )}
+            </div>
+
+            {/* Claims List Section */}
+            <div className="border-l pl-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <FileWarning className="w-5 h-5 text-gray-600" />
+                  <h3 className="text-sm font-semibold text-gray-900">
+                    Associated Claims
+                    {claims.length > 0 && (
+                      <span className="ml-2 text-xs font-normal text-gray-500">
+                        ({claims.length})
+                      </span>
+                    )}
+                  </h3>
+                </div>
+              </div>
+
+              <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
+                {claims.length === 0 ? (
+                  <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                    <AlertCircle className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500 font-medium">
+                      No claims filed
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      This warranty has no associated claims
+                    </p>
+                  </div>
+                ) : (
+                  claims.map((claim) => (
+                    <div
+                      key={claim.id}
+                      className="p-3 rounded-lg border bg-white hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-mono font-medium text-gray-900 truncate">
+                            {claim.claim_external_id}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            Filed: {convertToIST(claim.claim_register_date)}
+                          </p>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className={`${getStatusColor(
+                            claim.claim_status_name
+                          )} capitalize text-xs shrink-0`}
+                        >
+                          {claim.claim_status_name.replace(/_/g, " ")}
+                        </Badge>
+                      </div>
+
+                      {claim.defect_description && (
+                        <p className="text-xs text-gray-600 mb-2 line-clamp-2">
+                          {claim.defect_description}
+                        </p>
+                      )}
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full gap-2 h-8 text-xs"
+                        onClick={() =>
+                          router.push(`/admin/claims/${claim.claim_external_id}`)
+                        }
+                      >
+                        <Eye className="w-3 h-3" />
+                        View Claim Details
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
-          {selectedStatus !== warranty.warranty_status_id && (
-            <p className="text-sm text-amber-600 mt-3 flex items-center gap-1.5">
-              <span className="w-1 h-1 bg-amber-600 rounded-full" />
-              You have unsaved changes
-            </p>
-          )}
         </CardContent>
       </Card>
 
@@ -373,7 +436,7 @@ export default function WarrantyDetailPage() {
                     Purchase Date
                   </Label>
                   <p className="text-base text-gray-900 mt-1">
-                    {formatDate(warranty.purchase_date)}
+                    {convertToIST(warranty.purchase_date, false)}
                   </p>
                 </div>
               </div>
@@ -409,7 +472,7 @@ export default function WarrantyDetailPage() {
                     Registration Date
                   </Label>
                   <p className="text-base text-gray-900 mt-1">
-                    {formatDateTime(warranty.registration_date)}
+                    {convertToIST(warranty.registration_date)}
                   </p>
                 </div>
               </div>

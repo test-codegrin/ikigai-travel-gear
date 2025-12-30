@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { API } from "@/lib/api-endpoints";
+import { convertToIST } from "@/lib/convertToIST";
 
 interface Warranty {
   id: number;
@@ -138,15 +139,7 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const dateWithoutZ = dateString.replace("Z", "");
-    const date = new Date(dateWithoutZ);
-    return date.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
+
 
   return (
     <div className="space-y-6">
@@ -395,7 +388,7 @@ export default function AdminDashboardPage() {
                         {claim.claim_external_id}
                       </p>
                       <p className="text-xs text-gray-400 mt-1">
-                        {formatDate(claim.claim_register_date)}
+                        {convertToIST(claim.claim_register_date,false)}
                       </p>
                     </div>
                     <Badge
@@ -508,7 +501,7 @@ export default function AdminDashboardPage() {
                           </Badge>
                         </td>
                         <td className="py-3 px-4 text-sm text-gray-600">
-                          {formatDate(warranty.registration_date)}
+                          {convertToIST(warranty.registration_date,false)}
                         </td>
                         <td className="py-3 px-4">
                           <Button

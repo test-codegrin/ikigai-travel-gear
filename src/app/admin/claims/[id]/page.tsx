@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { API } from "@/lib/api-endpoints";
 import { toast } from "sonner";
+import { convertToIST } from "@/lib/convertToIST";
 
 interface ClaimDetail {
   id: number;
@@ -234,19 +235,6 @@ export default function ClaimDetailPage() {
     });
   };
 
-  const formatDateTime = (dateString: string | null | undefined) => {
-    if (!dateString) return "N/A";
-    const dateWithoutZ = dateString.replace("Z", "");
-    const date = new Date(dateWithoutZ);
-    return date.toLocaleString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-  };
 
   const hasChanges =
     selectedStatus !== claim?.claim_status_id ||
@@ -325,7 +313,7 @@ export default function ClaimDetailPage() {
                 </Label>
                 <Select
                   value={selectedStatus.toString()}
-                  onValueChange={(value) => setSelectedStatus(parseInt(value))}
+                  onValueChange={(value) => {setSelectedStatus(parseInt(value));setAdminNotes(""); }}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select status" />
@@ -430,7 +418,7 @@ export default function ClaimDetailPage() {
                         </div>
 
                         <p className="text-xs text-gray-500 mb-1">
-                          {formatDateTime(item.changed_at)}
+                         {convertToIST(item.changed_at)}
                         </p>
 
                         {item.changed_by && (
@@ -484,7 +472,7 @@ export default function ClaimDetailPage() {
                   Claim Registration Date
                 </Label>
                 <p className="text-base text-gray-900 mt-1">
-                  {formatDateTime(claim.claim_register_date)}
+                  {convertToIST(claim.claim_register_date)}
                 </p>
               </div>
 
@@ -494,7 +482,7 @@ export default function ClaimDetailPage() {
                     Result Date
                   </Label>
                   <p className="text-base text-gray-900 mt-1">
-                    {formatDateTime(claim.claim_result_date)}
+                    {convertToIST(claim.claim_result_date)}
                   </p>
                 </div>
               )}
@@ -716,7 +704,7 @@ export default function ClaimDetailPage() {
                     Warranty Registration Date
                   </Label>
                   <p className="text-base text-gray-900 mt-1">
-                    {formatDateTime(claim.warranty_registration_date)}
+                    {convertToIST(claim.warranty_registration_date)}
                   </p>
                 </div>
               </div>

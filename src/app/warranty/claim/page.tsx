@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dialog";
 import { FindWarrantyDialog } from "@/components/FindWarrantyDialog";
 import { useRouter } from "next/navigation";
+import { convertToIST } from "@/lib/convertToIST";
 
 // File size limits
 const MAX_PHOTO_SIZE = 5 * 1024 * 1024; // 5MB
@@ -51,13 +52,7 @@ function formatFileSize(bytes: number): string {
   return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
 }
 
-function formatDate(date: string): string {
-  return new Date(date).toLocaleDateString("en-US", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
-}
+
 
 // Main Component
 export default function WarrantyClaimPage() {
@@ -124,9 +119,9 @@ export default function WarrantyClaimPage() {
     searchWarrantyById(externalId);
   };
 
-  const handleTrackClaim = ()=>{
+  const handleTrackClaim = () => {
     router.push("/warranty/track-claim");
-  }
+  };
 
   // Separate search function that accepts ID parameter
   const searchWarrantyById = async (id: string) => {
@@ -284,12 +279,12 @@ export default function WarrantyClaimPage() {
     e.preventDefault();
 
     // Block if there's ANY existing claim
-    if (existingClaim) {
-      toast.error(
-        "This warranty already has a claim. Only one claim per warranty is allowed."
-      );
-      return;
-    }
+    // if (existingClaim) {
+    //   toast.error(
+    //     "This warranty already has a claim. Only one claim per warranty is allowed."
+    //   );
+    //   return;
+    // }
 
     if (!claimData.defect_description.trim()) {
       toast.error("Please describe the defect");
@@ -442,17 +437,17 @@ export default function WarrantyClaimPage() {
                     disabled={searchLoading}
                     className="flex h-9 sm:h-10 px-4 sm:px-6 shrink-0 text-xs sm:text-sm"
                   >
-                    <FileSearch/>
+                    <FileSearch />
                     Find Warranty ID
                   </Button>
-                   <Button
+                  <Button
                     type="button"
                     variant="outline"
                     onClick={() => handleTrackClaim()}
                     disabled={searchLoading}
                     className="flex h-9 sm:h-10 px-4 sm:px-6 shrink-0 text-xs sm:text-sm"
                   >
-                  <LocateFixed/>
+                    <LocateFixed />
                     Track Your Claim
                   </Button>
                 </div>
@@ -478,209 +473,192 @@ export default function WarrantyClaimPage() {
                 </Button>
               )}
             </div>
-
-           
           </div>
 
           {/* Existing Claim Warning - Show for ANY claim status */}
-         {existingClaim && (
-  <div
-    className={`mt-4 rounded-lg p-3 sm:p-4 ${
-      existingClaim.claim_status === "pending" ||
-      existingClaim.claim_status === "under_review"
-        ? "bg-yellow-50 border border-yellow-300"
-        : existingClaim.claim_status === "rejected"
-        ? "bg-red-50 border border-red-300"
-        : "bg-green-50 border border-green-300"
-    }`}
-  >
-    <div className="flex items-start gap-2 sm:gap-3">
-      <AlertCircle
-        className={`w-4 h-4 sm:w-5 sm:h-5 shrink-0 mt-0.5 ${
-          existingClaim.claim_status === "pending" ||
-          existingClaim.claim_status === "under_review"
-            ? "text-yellow-600"
-            : existingClaim.claim_status === "rejected"
-            ? "text-red-600"
-            : "text-green-600"
-        }`}
-      />
-      <div className="flex-1 min-w-0">
-        <h3
-          className={`font-semibold text-xs sm:text-sm ${
-            existingClaim.claim_status === "pending" ||
-            existingClaim.claim_status === "under_review"
-              ? "text-yellow-900"
-              : existingClaim.claim_status === "rejected"
-              ? "text-red-900"
-              : "text-green-900"
-          }`}
-        >
-          {existingClaim.claim_status === "pending" ||
-          existingClaim.claim_status === "under_review"
-            ? "Claim Under Review"
-            : existingClaim.claim_status === "rejected"
-            ? "Claim Rejected"
-            : existingClaim.claim_status === "approved"
-            ? "Claim Approved"
-            : existingClaim.claim_status === "shipped"
-            ? "Product Shipped"
-            : existingClaim.claim_status === "completed"
-            ? "Claim Completed"
-            : "Claim Exists"}
-        </h3>
-        <p
-          className={`text-xs sm:text-sm mt-1 ${
-            existingClaim.claim_status === "pending" ||
-            existingClaim.claim_status === "under_review"
-              ? "text-yellow-800"
-              : existingClaim.claim_status === "rejected"
-              ? "text-red-800"
-              : "text-green-800"
-          }`}
-        >
-          {existingClaim.claim_status === "pending" ||
-          existingClaim.claim_status === "under_review"
-            ? "Your claim is currently being reviewed by our team."
-            : existingClaim.claim_status === "rejected"
-            ? "Your claim has been rejected. Please contact support for more details."
-            : existingClaim.claim_status === "approved"
-            ? "Your claim has been approved. You will receive further instructions shortly."
-            : existingClaim.claim_status === "shipped"
-            ? "Your product has been shipped to our service center for repair/replacement."
-            : existingClaim.claim_status === "completed"
-            ? "Your claim has been successfully completed. Thank you for your patience."
-            : "A claim has been registered for this warranty."}
-        </p>
-        <div className="mt-2 space-y-1">
-          <p
-            className={`text-xs ${
-              existingClaim.claim_status === "pending" ||
-              existingClaim.claim_status === "under_review"
-                ? "text-yellow-700"
-                : existingClaim.claim_status === "rejected"
-                ? "text-red-700"
-                : "text-green-700"
-            }`}
-          >
-            <span className="font-medium">Claim ID:</span>{" "}
-            <strong className="break-all">
-              {existingClaim.claim_external_id}
-            </strong>
-          </p>
-          <p
-            className={`text-xs ${
-              existingClaim.claim_status === "pending" ||
-              existingClaim.claim_status === "under_review"
-                ? "text-yellow-700"
-                : existingClaim.claim_status === "rejected"
-                ? "text-red-700"
-                : "text-green-700"
-            }`}
-          >
-            <span className="font-medium">Status:</span>{" "}
-            <span
-              className={`font-medium capitalize px-2 py-1 rounded border inline-block ${
+          {existingClaim && (
+            <div
+              className={`mt-4 rounded-lg p-3 sm:p-4 ${
                 existingClaim.claim_status === "pending" ||
                 existingClaim.claim_status === "under_review"
-                  ? "bg-yellow-100 text-yellow-800 border-yellow-200"
+                  ? "bg-yellow-50 border border-yellow-300"
                   : existingClaim.claim_status === "rejected"
-                  ? "bg-red-100 text-red-800 border-red-200"
-                  : "bg-green-100 text-green-800 border-green-200"
+                  ? "bg-red-50 border border-red-300"
+                  : "bg-green-50 border border-green-300"
               }`}
             >
-              {existingClaim.claim_status.replace("_", " ")}
-            </span>
-          </p>
-          <p
-            className={`text-xs ${
-              existingClaim.claim_status === "pending" ||
-              existingClaim.claim_status === "under_review"
-                ? "text-yellow-700"
-                : existingClaim.claim_status === "rejected"
-                ? "text-red-700"
-                : "text-green-700"
-            }`}
-          >
-            <span className="font-medium">Registered on:</span>{" "}
-            {formatDate(existingClaim.claim_register_date)}
-          </p>
-          
-          {/* Show Claim Result Date if exists */}
-          {existingClaim.claim_result_date && (
-            <p
-              className={`text-xs ${
-                existingClaim.claim_status === "pending" ||
-                existingClaim.claim_status === "under_review"
-                  ? "text-yellow-700"
-                  : existingClaim.claim_status === "rejected"
-                  ? "text-red-700"
-                  : "text-green-700"
-              }`}
-            >
-              <span className="font-medium">Result Date:</span>{" "}
-              {formatDate(existingClaim.claim_result_date)}
-            </p>
+              <div className="flex items-start gap-2 sm:gap-3">
+                <AlertCircle
+                  className={`w-4 h-4 sm:w-5 sm:h-5 shrink-0 mt-0.5 ${
+                    existingClaim.claim_status === "pending" ||
+                    existingClaim.claim_status === "under_review"
+                      ? "text-yellow-600"
+                      : existingClaim.claim_status === "rejected"
+                      ? "text-red-600"
+                      : "text-green-600"
+                  }`}
+                />
+                <div className="flex-1 min-w-0">
+                  <h3
+                    className={`font-semibold text-xs sm:text-sm ${
+                      existingClaim.claim_status === "pending" ||
+                      existingClaim.claim_status === "under_review"
+                        ? "text-yellow-900"
+                        : existingClaim.claim_status === "rejected"
+                        ? "text-red-900"
+                        : "text-green-900"
+                    }`}
+                  >
+                    {existingClaim.claim_status === "pending" ||
+                    existingClaim.claim_status === "under_review"
+                      ? "Claim Under Review"
+                      : existingClaim.claim_status === "rejected"
+                      ? "Claim Rejected"
+                      : existingClaim.claim_status === "approved"
+                      ? "Claim Approved"
+                      : existingClaim.claim_status === "shipped"
+                      ? "Product Shipped"
+                      : existingClaim.claim_status === "completed"
+                      ? "Claim Completed"
+                      : "Claim Exists"}
+                  </h3>
+                  <p
+                    className={`text-xs sm:text-sm mt-1 ${
+                      existingClaim.claim_status === "pending" ||
+                      existingClaim.claim_status === "under_review"
+                        ? "text-yellow-800"
+                        : existingClaim.claim_status === "rejected"
+                        ? "text-red-800"
+                        : "text-green-800"
+                    }`}
+                  >
+                    {existingClaim.claim_status === "pending" ||
+                    existingClaim.claim_status === "under_review"
+                      ? "Your claim is currently being reviewed by our team."
+                      : existingClaim.claim_status === "rejected"
+                      ? "Your claim has been rejected. Please contact support for more details."
+                      : existingClaim.claim_status === "approved"
+                      ? "Your claim has been approved. You will receive further instructions shortly."
+                      : existingClaim.claim_status === "shipped"
+                      ? "Your product has been shipped to our service center for repair/replacement."
+                      : existingClaim.claim_status === "completed"
+                      ? "Your claim has been successfully completed. Thank you for your patience."
+                      : "A claim has been registered for this warranty."}
+                  </p>
+                  <div className="mt-2 space-y-1">
+                    <p
+                      className={`text-xs ${
+                        existingClaim.claim_status === "pending" ||
+                        existingClaim.claim_status === "under_review"
+                          ? "text-yellow-700"
+                          : existingClaim.claim_status === "rejected"
+                          ? "text-red-700"
+                          : "text-green-700"
+                      }`}
+                    >
+                      <span className="font-medium">Claim ID:</span>{" "}
+                      <strong className="break-all">
+                        {existingClaim.claim_external_id}
+                      </strong>
+                    </p>
+                    <p
+                      className={`text-xs ${
+                        existingClaim.claim_status === "pending" ||
+                        existingClaim.claim_status === "under_review"
+                          ? "text-yellow-700"
+                          : existingClaim.claim_status === "rejected"
+                          ? "text-red-700"
+                          : "text-green-700"
+                      }`}
+                    >
+                      <span className="font-medium">Status:</span>{" "}
+                      <span
+                        className={`font-medium capitalize px-2 py-1 rounded border inline-block ${
+                          existingClaim.claim_status === "pending" ||
+                          existingClaim.claim_status === "under_review"
+                            ? "bg-yellow-100 text-yellow-800 border-yellow-200"
+                            : existingClaim.claim_status === "rejected"
+                            ? "bg-red-100 text-red-800 border-red-200"
+                            : "bg-green-100 text-green-800 border-green-200"
+                        }`}
+                      >
+                        {existingClaim.claim_status.replace("_", " ")}
+                      </span>
+                    </p>
+                    <p
+                      className={`text-xs ${
+                        existingClaim.claim_status === "pending" ||
+                        existingClaim.claim_status === "under_review"
+                          ? "text-yellow-700"
+                          : existingClaim.claim_status === "rejected"
+                          ? "text-red-700"
+                          : "text-green-700"
+                      }`}
+                    >
+                      <span className="font-medium">Registered on:</span>{" "}
+                      {convertToIST(existingClaim.claim_register_date,false)}
+                    </p>
+
+                    {/* Show Claim Result Date if exists */}
+                    {existingClaim.claim_result_date && (
+                      <p
+                        className={`text-xs ${
+                          existingClaim.claim_status === "pending" ||
+                          existingClaim.claim_status === "under_review"
+                            ? "text-yellow-700"
+                            : existingClaim.claim_status === "rejected"
+                            ? "text-red-700"
+                            : "text-green-700"
+                        }`}
+                      >
+                        <span className="font-medium">Result Date:</span>{" "}
+                        {convertToIST(existingClaim.claim_result_date,false)}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Show Admin Notes if exists */}
+                  {existingClaim.admin_notes && (
+                    <div
+                      className={`mt-3 p-2 rounded border ${
+                        existingClaim.claim_status === "pending" ||
+                        existingClaim.claim_status === "under_review"
+                          ? "bg-yellow-100 border-yellow-200"
+                          : existingClaim.claim_status === "rejected"
+                          ? "bg-red-100 border-red-200"
+                          : "bg-green-100 border-green-200"
+                      }`}
+                    >
+                      <p
+                        className={`text-xs font-medium mb-1 ${
+                          existingClaim.claim_status === "pending" ||
+                          existingClaim.claim_status === "under_review"
+                            ? "text-yellow-900"
+                            : existingClaim.claim_status === "rejected"
+                            ? "text-red-900"
+                            : "text-green-900"
+                        }`}
+                      >
+                        Admin Notes:
+                      </p>
+                      <p
+                        className={`text-xs ${
+                          existingClaim.claim_status === "pending" ||
+                          existingClaim.claim_status === "under_review"
+                            ? "text-yellow-800"
+                            : existingClaim.claim_status === "rejected"
+                            ? "text-red-800"
+                            : "text-green-800"
+                        }`}
+                      >
+                        {existingClaim.admin_notes}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           )}
-        </div>
-
-        {/* Show Admin Notes if exists */}
-        {existingClaim.admin_notes && (
-          <div
-            className={`mt-3 p-2 rounded border ${
-              existingClaim.claim_status === "pending" ||
-              existingClaim.claim_status === "under_review"
-                ? "bg-yellow-100 border-yellow-200"
-                : existingClaim.claim_status === "rejected"
-                ? "bg-red-100 border-red-200"
-                : "bg-green-100 border-green-200"
-            }`}
-          >
-            <p
-              className={`text-xs font-medium mb-1 ${
-                existingClaim.claim_status === "pending" ||
-                existingClaim.claim_status === "under_review"
-                  ? "text-yellow-900"
-                  : existingClaim.claim_status === "rejected"
-                  ? "text-red-900"
-                  : "text-green-900"
-              }`}
-            >
-              Admin Notes:
-            </p>
-            <p
-              className={`text-xs ${
-                existingClaim.claim_status === "pending" ||
-                existingClaim.claim_status === "under_review"
-                  ? "text-yellow-800"
-                  : existingClaim.claim_status === "rejected"
-                  ? "text-red-800"
-                  : "text-green-800"
-              }`}
-            >
-              {existingClaim.admin_notes}
-            </p>
-          </div>
-        )}
-
-        <p
-          className={`text-xs mt-3 font-semibold ${
-            existingClaim.claim_status === "pending" ||
-            existingClaim.claim_status === "under_review"
-              ? "text-yellow-800"
-              : existingClaim.claim_status === "rejected"
-              ? "text-red-800"
-              : "text-green-800"
-          }`}
-        >
-          Only ONE claim per warranty is allowed. You cannot submit a new
-          claim.
-        </p>
-      </div>
-    </div>
-  </div>
-)}
-
 
           {/* Warranty Details (Auto-filled) */}
           {warrantyFound && (
@@ -754,7 +732,7 @@ export default function WarrantyClaimPage() {
                   <div>
                     <Label className="text-xs sm:text-sm">Purchase Date</Label>
                     <Input
-                      value={formatDate(warrantyData.purchase_date)}
+                      value={convertToIST(warrantyData.purchase_date,false)}
                       disabled
                       className="mt-1 h-9 sm:h-10 bg-gray-50 text-sm sm:text-base"
                     />
@@ -770,9 +748,7 @@ export default function WarrantyClaimPage() {
                   </div>
 
                   <div>
-                    <Label className="text-xs sm:text-sm">
-                      Purchase Price
-                    </Label>
+                    <Label className="text-xs sm:text-sm">Purchase Price</Label>
                     <Input
                       value={`₹${warrantyData.purchase_price}`}
                       disabled
@@ -798,7 +774,7 @@ export default function WarrantyClaimPage() {
                       Registration Date
                     </Label>
                     <Input
-                      value={formatDate(warrantyData.registration_date)}
+                      value={convertToIST(warrantyData.registration_date,false)}
                       disabled
                       className="mt-1 h-9 sm:h-10 bg-gray-50 text-sm sm:text-base"
                     />
@@ -807,7 +783,7 @@ export default function WarrantyClaimPage() {
               </div>
 
               {/* Claim Form Section - Only show if NO existing claim */}
-              {!existingClaim && (
+              {existingClaim?.claim_status !== "under_review" && (
                 <>
                   <div className="border-t pt-4 sm:pt-6">
                     <h3 className="text-sm sm:text-base font-semibold text-gray-900 mb-4">
@@ -837,6 +813,7 @@ export default function WarrantyClaimPage() {
                         placeholder="Please describe the defect or issue in detail..."
                         className="mt-1 min-h-[120px] text-sm sm:text-base resize-none"
                         rows={5}
+                        disabled={loading}
                       />
                     </div>
 
@@ -887,6 +864,7 @@ export default function WarrantyClaimPage() {
                                 size="sm"
                                 className="flex-1 h-7 sm:h-8 text-xs"
                                 onClick={() => handleViewFile("photo_file")}
+                                disabled={loading}
                               >
                                 <Eye className="w-3 h-3 mr-1" />
                                 View
@@ -897,6 +875,7 @@ export default function WarrantyClaimPage() {
                                 size="sm"
                                 className="flex-1 h-7 sm:h-8 text-xs"
                                 onClick={() => handleRemoveFile("photo_file")}
+                                disabled={loading}
                               >
                                 <X className="w-3 h-3 mr-1" />
                                 Remove
@@ -911,6 +890,7 @@ export default function WarrantyClaimPage() {
                           accept="image/jpeg,image/jpg,image/png,image/webp"
                           onChange={(e) => handleFileChange(e, "photo_file")}
                           className="hidden"
+                          disabled={loading}
                         />
                       </div>
 
@@ -958,6 +938,7 @@ export default function WarrantyClaimPage() {
                                 size="sm"
                                 className="flex-1 h-7 sm:h-8 text-xs"
                                 onClick={() => handleViewFile("video_file")}
+                                disabled={loading}
                               >
                                 <Eye className="w-3 h-3 mr-1" />
                                 View
@@ -968,6 +949,7 @@ export default function WarrantyClaimPage() {
                                 size="sm"
                                 className="flex-1 h-7 sm:h-8 text-xs"
                                 onClick={() => handleRemoveFile("video_file")}
+                                disabled={loading}
                               >
                                 <X className="w-3 h-3 mr-1" />
                                 Remove
@@ -981,6 +963,7 @@ export default function WarrantyClaimPage() {
                           accept="video/mp4,video/webm,video/quicktime"
                           onChange={(e) => handleFileChange(e, "video_file")}
                           className="hidden"
+                          disabled={loading}
                         />
                       </div>
                     </div>
@@ -993,6 +976,7 @@ export default function WarrantyClaimPage() {
                         onCheckedChange={(checked) =>
                           setAgreePolicy(checked as boolean)
                         }
+                        disabled={loading}
                         className="mt-0.5"
                       />
                       <label

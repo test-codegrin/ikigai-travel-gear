@@ -19,6 +19,7 @@ import {
 import { API } from "@/lib/api-endpoints";
 import { toast } from "sonner";
 import { useParams } from "next/navigation";
+import { convertToIST } from "@/lib/convertToIST";
 
 interface ClaimInfo {
   claim_external_id: string;
@@ -36,28 +37,7 @@ interface StatusHistory {
   changed_at: string;
 }
 
-function formatDate(dateString: string): string {
-  const dateWithoutZ = dateString.replace("Z", "");
-  const date = new Date(dateWithoutZ);
-  return date.toLocaleDateString("en-US", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
-}
 
-function formatDateTime(dateString: string): string {
-  const dateWithoutZ = dateString.replace("Z", "");
-  const date = new Date(dateWithoutZ);
-  return date.toLocaleString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
 
 export default function TrackClaimPage() {
   const params = useParams();
@@ -364,7 +344,7 @@ export default function TrackClaimPage() {
                   Claim Submitted On
                 </Label>
                 <div className="text-sm sm:text-base text-gray-900 mt-1">
-                  {formatDate(claim.claim_register_date)}
+                  {convertToIST(claim.claim_register_date,false)}
                 </div>
               </div>
             </div>
@@ -412,7 +392,7 @@ export default function TrackClaimPage() {
                               {item.status_name.replace(/_/g, " ")}
                             </Badge>
                             <p className="text-xs text-gray-500">
-                              {formatDateTime(item.changed_at)}
+                              {convertToIST(item.changed_at)}
                             </p>
                             {item.changed_by && (
                               <p className="text-xs text-gray-400 mt-1">

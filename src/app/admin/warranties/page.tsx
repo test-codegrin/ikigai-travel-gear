@@ -44,6 +44,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
 import { useDebounce } from "@/hooks/useDebounce";
+import { convertToIST } from "@/lib/convertToIST";
 
 interface Warranty {
   id: number;
@@ -718,13 +719,9 @@ export default function WarrantiesPage() {
                           </Badge>
                         </td>
                         <td className="py-3 px-4 text-sm text-gray-600">
-                          {new Date(
-                            warranty.registration_date
-                          ).toLocaleDateString("en-IN", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                          })}
+                          {convertToIST(
+                            warranty.registration_date,false
+                          )}
                         </td>
                         <td className="py-3 px-4">
                           <Button

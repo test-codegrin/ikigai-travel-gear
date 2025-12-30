@@ -48,6 +48,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
 import { useDebounce } from "@/hooks/useDebounce";
+import { convertToIST } from "@/lib/convertToIST";
 
 interface Claim {
   id: number;
@@ -775,7 +776,7 @@ export default function ClaimsPage() {
                           </span>
                         </td>
                         <td className="py-3 px-4">
-                          <span className="font-mono text-xs text-gray-600">
+                          <span className="font-mono text-sm text-gray-600">
                             {claim.warranty_external_id}
                           </span>
                         </td>
@@ -805,13 +806,7 @@ export default function ClaimsPage() {
                           </Badge>
                         </td>
                         <td className="py-3 px-4 text-sm text-gray-600">
-                          {new Date(
-                            claim.claim_register_date
-                          ).toLocaleDateString("en-IN", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                          })}
+                          {convertToIST(claim.claim_register_date,false)}
                         </td>
                         <td className="py-3 px-4">
                           <Button

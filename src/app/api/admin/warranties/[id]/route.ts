@@ -21,12 +21,22 @@ interface WarrantyDetail extends RowDataPacket {
   status_name: string;
   registration_date: string;
   created_at: string;
-  claim_external_id: string | null;
 }
 
 interface WarrantyStatus extends RowDataPacket {
   id: number;
   name: string;
+}
+
+interface ClaimInfo extends RowDataPacket {
+  id: number;
+  claim_external_id: string;
+  claim_status_id: number;
+  claim_status_name: string;
+  claim_register_date: string;
+  claim_result_date: string | null;
+  defect_description: string;
+  admin_notes: string | null;
 }
 
 export async function GET(
@@ -43,15 +53,13 @@ export async function GET(
     const { id } = await params;
     const warrantyId = id;
 
-    // Fetch warranty detail with status name and claim external_id
+    // Fetch warranty detail with status name (without claims)
     const warranty = await selectQuery<WarrantyDetail>(
       `SELECT 
         w.*,
-        ws.name as status_name,
-        c.claim_external_id
+        ws.name as status_name
       FROM warranties w
       LEFT JOIN warranty_statuses ws ON w.warranty_status_id = ws.id
-      LEFT JOIN claims c ON c.warranty_id = w.id AND c.is_deleted = 0
       WHERE w.external_id = ? AND w.is_deleted = 0
       LIMIT 1`,
       [warrantyId]
@@ -64,7 +72,25 @@ export async function GET(
       );
     }
 
-    // Fetch all available statuses
+    // Fetch all claims associated with this warranty
+    const claims = await selectQuery<ClaimInfo>(
+      `SELECT 
+        c.id,
+        c.claim_external_id,
+        c.claim_status_id,
+        cs.name as claim_status_name,
+        c.claim_register_date,
+        c.claim_result_date,
+        c.defect_description,
+        c.admin_notes
+      FROM claims c
+      LEFT JOIN claim_statuses cs ON c.claim_status_id = cs.id
+      WHERE c.warranty_id = ? AND c.is_deleted = 0
+      ORDER BY c.claim_register_date DESC`,
+      [warranty[0].id]
+    );
+
+    // Fetch all available warranty statuses
     const statuses = await selectQuery<WarrantyStatus>(
       `SELECT id, name FROM warranty_statuses WHERE is_deleted = 0 ORDER BY id`
     );
@@ -72,6 +98,7 @@ export async function GET(
     return NextResponse.json(
       {
         warranty: warranty[0],
+        claims: claims,
         statuses: statuses,
       },
       { status: 200 }
