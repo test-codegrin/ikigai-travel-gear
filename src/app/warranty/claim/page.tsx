@@ -409,7 +409,7 @@ export default function WarrantyClaimPage() {
             <Label htmlFor="warranty_id" className="text-xs sm:text-sm">
               Warranty ID <span className="text-red-500">*</span>
             </Label>
-            <div className="flex gap-2">
+            <div className="flex flex-col md:flex-row gap-2">
               <Input
                 id="warranty_id"
                 value={warrantyId}
@@ -419,12 +419,12 @@ export default function WarrantyClaimPage() {
                 disabled={warrantyFound}
               />
               {!warrantyFound ? (
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <Button
                     type="button"
                     onClick={handleSearchWarranty}
                     disabled={searchLoading || !warrantyId.trim()}
-                    className="hidden sm:flex bg-primary hover:bg-primary/80 text-white h-9 sm:h-10 px-4 sm:px-6 shrink-0 text-xs sm:text-sm"
+                    className="flex bg-primary hover:bg-primary/80 text-white h-9 sm:h-10 px-4 sm:px-6 shrink-0 text-xs sm:text-sm"
                   >
                     {searchLoading ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -440,7 +440,7 @@ export default function WarrantyClaimPage() {
                     variant="outline"
                     onClick={() => setFindDialogOpen(true)}
                     disabled={searchLoading}
-                    className="hidden sm:flex h-9 sm:h-10 px-4 sm:px-6 shrink-0 text-xs sm:text-sm"
+                    className="flex h-9 sm:h-10 px-4 sm:px-6 shrink-0 text-xs sm:text-sm"
                   >
                     <FileSearch/>
                     Find Warranty ID
@@ -450,7 +450,7 @@ export default function WarrantyClaimPage() {
                     variant="outline"
                     onClick={() => handleTrackClaim()}
                     disabled={searchLoading}
-                    className="hidden sm:flex h-9 sm:h-10 px-4 sm:px-6 shrink-0 text-xs sm:text-sm"
+                    className="flex h-9 sm:h-10 px-4 sm:px-6 shrink-0 text-xs sm:text-sm"
                   >
                   <LocateFixed/>
                     Track Your Claim
@@ -472,65 +472,14 @@ export default function WarrantyClaimPage() {
                     setAgreePolicy(false);
                   }}
                   variant="outline"
-                  className="hidden sm:flex h-9 sm:h-10 px-4 text-xs sm:text-sm"
+                  className="flex h-9 sm:h-10 px-4 text-xs sm:text-sm"
                 >
                   Reset
                 </Button>
               )}
             </div>
 
-            {/* Mobile Buttons */}
-            {!warrantyFound ? (
-              <div className="sm:hidden flex flex-col gap-2">
-                <Button
-                  type="button"
-                  onClick={handleSearchWarranty}
-                  disabled={searchLoading || !warrantyId.trim()}
-                  className="w-full bg-primary hover:bg-primary/80 text-white h-9 text-sm"
-                >
-                  {searchLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Searching...
-                    </>
-                  ) : (
-                    <>
-                      <Search className="w-4 h-4 mr-2" />
-                      Search Warranty
-                    </>
-                  )}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setFindDialogOpen(true)}
-                  disabled={searchLoading}
-                  className="w-full h-9 text-sm"
-                >
-                  Find Warranty ID
-                </Button>
-              </div>
-            ) : (
-              <Button
-                type="button"
-                onClick={() => {
-                  setWarrantyFound(false);
-                  setWarrantyId("");
-                  setExistingClaim(null);
-                  setClaimData({ defect_description: "" });
-                  setFiles({ photo_file: null, video_file: null });
-                  setFilePreviews({
-                    photo_preview: null,
-                    video_preview: null,
-                  });
-                  setAgreePolicy(false);
-                }}
-                variant="outline"
-                className="sm:hidden w-full h-9 text-sm"
-              >
-                Reset Search
-              </Button>
-            )}
+           
           </div>
 
           {/* Existing Claim Warning - Show for ANY claim status */}
