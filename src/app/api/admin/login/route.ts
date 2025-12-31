@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { selectQuery, mutationQuery } from "@/lib/db";
+import { selectQuery } from "@/lib/db";
 import { generateOTP } from "@/lib/auth";
 import { sendAdminLoginOTP } from "@/lib/email";
 import { RowDataPacket } from "mysql2/promise";
+import { otpStore } from "@/lib/otp-store"; // Import the singleton
 
 interface AdminRow extends RowDataPacket {
   id: number;
@@ -10,8 +11,6 @@ interface AdminRow extends RowDataPacket {
   name: string;
   is_active: boolean;
 }
-
-const otpStore = new Map<string, { otp: string; expires: number }>();
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,7 +23,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if admin exists
     const admins = await selectQuery<AdminRow>(
       "SELECT * FROM admins WHERE email = ? AND is_active = TRUE AND is_deleted = FALSE",
       [email]
@@ -37,16 +35,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const admin = admins[0];
-
-    // Generate OTP
     const otp = generateOTP();
-    const expires = Date.now() + 10 * 60 * 1000; // 10 minutes
+    const expires = Date.now() + 10 * 60 * 1000;
 
-    // Store OTP
     otpStore.set(email, { otp, expires });
 
-    // Send OTP via email
     await sendAdminLoginOTP(email, otp);
 
     return NextResponse.json(
@@ -62,7 +55,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Verify OTP
 export async function PUT(request: NextRequest) {
   try {
     const { email, otp } = await request.json();
@@ -98,7 +90,6 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // OTP valid, get admin details
     const admins = await selectQuery<AdminRow>(
       "SELECT * FROM admins WHERE email = ? AND is_active = TRUE AND is_deleted = FALSE",
       [email]
@@ -113,10 +104,8 @@ export async function PUT(request: NextRequest) {
 
     const admin = admins[0];
 
-    // Clear OTP
     otpStore.delete(email);
 
-    // Generate JWT token
     const { generateToken } = await import("@/lib/auth");
     const token = generateToken({
       id: admin.id,
@@ -124,7 +113,6 @@ export async function PUT(request: NextRequest) {
       name: admin.name,
     });
 
-    // Set cookie
     const response = NextResponse.json(
       {
         message: "Login successful",
@@ -141,7 +129,7 @@ export async function PUT(request: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60, // 7 days
+      maxAge: 7 * 24 * 60 * 60,
     });
 
     return response;
