@@ -5,6 +5,19 @@ import { sendWarrantyConfirmation } from "@/lib/email";
 import { RowDataPacket } from "mysql2/promise";
 import { randomBytes } from "crypto";
 
+
+
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '10mb',
+    },
+  },
+};
+
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+
 interface StatusRow extends RowDataPacket {
   id: number;
 }
