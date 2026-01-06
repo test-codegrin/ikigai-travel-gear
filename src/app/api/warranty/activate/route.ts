@@ -1,22 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { mutationQuery, selectQuery } from "@/lib/db";
-import { saveFile } from "@/lib/file-upload";
 import { sendWarrantyConfirmation } from "@/lib/email";
 import { RowDataPacket } from "mysql2/promise";
 import { randomBytes } from "crypto";
-
-
-
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '10mb',
-    },
-  },
-};
-
-export const maxDuration = 60;
-export const dynamic = 'force-dynamic';
 
 interface StatusRow extends RowDataPacket {
   id: number;
@@ -24,19 +10,24 @@ interface StatusRow extends RowDataPacket {
 
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData();
+    // Parse JSON body (files are already uploaded)
+    const body = await request.json();
 
-    const name = formData.get("name") as string;
-    const email = formData.get("email") as string;
-    const mobile = formData.get("mobile") as string;
-    const address = formData.get("address") as string;
-    const city = formData.get("city") as string;
-    const pincode = formData.get("pincode") as string;
-    const purchase_date = formData.get("purchase_date") as string;
-    const purchase_from = formData.get("purchase_from") as string;
-    const purchase_price = formData.get("purchase_price") as string;
-    const invoice_file = formData.get("invoice_file") as File;
-    const warranty_card_file = formData.get("warranty_card_file") as File;
+    const {
+      name,
+      email,
+      mobile,
+      address,
+      city,
+      pincode,
+      purchase_date,
+      purchase_from,
+      purchase_price,
+      invoice_file_url,
+      invoice_file_id,
+      warranty_card_file_url,
+      warranty_card_file_id,
+    } = body;
 
     // Validation
     if (!name || !email || !mobile || !purchase_date || !purchase_from) {
@@ -46,16 +37,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!invoice_file || !warranty_card_file) {
+    if (!invoice_file_url || !warranty_card_file_url || !invoice_file_id || !warranty_card_file_id) {
       return NextResponse.json(
         { error: "Invoice and warranty card files are required" },
         { status: 400 }
       );
     }
-
-    // Upload files to ImageKit (organized in folders)
-    const invoiceUpload = await saveFile(invoice_file, "invoice");
-    const warrantyCardUpload = await saveFile(warranty_card_file, "warranty-card");
 
     // Get 'registered' status ID
     const statusResult = await selectQuery<StatusRow>(
@@ -74,7 +61,7 @@ export async function POST(request: NextRequest) {
     // Generate external_id (Warranty ID)
     const external_id = `IKG-${randomBytes(6).toString("hex").toUpperCase()}`;
 
-    // Insert warranty with all customer data and ImageKit file IDs
+    // Insert warranty (files already uploaded to ImageKit)
     await mutationQuery(
       `INSERT INTO warranties (
         external_id,
@@ -105,10 +92,10 @@ export async function POST(request: NextRequest) {
         purchase_date,
         purchase_from,
         purchase_price,
-        invoiceUpload.url,
-        invoiceUpload.fileId,
-        warrantyCardUpload.url,
-        warrantyCardUpload.fileId,
+        invoice_file_url,
+        invoice_file_id,
+        warranty_card_file_url,
+        warranty_card_file_id,
         statusId,
       ]
     );
@@ -118,7 +105,6 @@ export async function POST(request: NextRequest) {
       await sendWarrantyConfirmation(email, name, external_id);
     } catch (emailError) {
       console.error("Failed to send confirmation email:", emailError);
-      // Don't fail the request if email fails
     }
 
     return NextResponse.json(
