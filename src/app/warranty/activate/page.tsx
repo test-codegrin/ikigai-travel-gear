@@ -1006,13 +1006,7 @@ export default function WarrantyPage() {
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     <span className="text-sm sm:text-base">
-                      {uploadProgress.invoice > 0 &&
-                      uploadProgress.invoice < 100
-                        ? `Uploading Invoice... ${uploadProgress.invoice}%`
-                        : uploadProgress.warranty > 0 &&
-                          uploadProgress.warranty < 100
-                        ? `Uploading Warranty Card... ${uploadProgress.warranty}%`
-                        : "Processing..."}
+                      Activating Warranty...
                     </span>
                   </>
                 ) : !emailVerified ? (
