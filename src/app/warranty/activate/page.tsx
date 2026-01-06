@@ -371,7 +371,7 @@ export default function WarrantyPage() {
       // Upload invoice file to ImageKit
       const invoiceUpload = await uploadFileToImageKit(
         files.invoice_file,
-        "invoice",
+        "ikigai-travel-gear/invoice",
         (progress) => {
           setUploadProgress((prev) => ({ ...prev, invoice: progress }));
         }
@@ -380,7 +380,7 @@ export default function WarrantyPage() {
       // Upload warranty card to ImageKit
       const warrantyUpload = await uploadFileToImageKit(
         files.warranty_card_file,
-        "warranty-card",
+        "ikigai-travel-gear/warranty-card",
         (progress) => {
           setUploadProgress((prev) => ({ ...prev, warranty: progress }));
         }

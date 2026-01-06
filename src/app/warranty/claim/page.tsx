@@ -310,7 +310,7 @@ export default function WarrantyClaimPage() {
       // Upload photo to ImageKit
       const photoUpload = await uploadFileToImageKit(
         files.photo_file,
-        "claim-photo",
+        "ikigai-travel-gear/claim-photo",
         (progress) => {
           setUploadProgress((prev) => ({ ...prev, photo: progress }));
         }
@@ -320,7 +320,7 @@ export default function WarrantyClaimPage() {
       if (files.video_file) {
         videoUpload = await uploadFileToImageKit(
           files.video_file,
-          "claim-video",
+          "ikigai-travel-gear/claim-video",
           (progress) => {
             setUploadProgress((prev) => ({ ...prev, video: progress }));
           }
