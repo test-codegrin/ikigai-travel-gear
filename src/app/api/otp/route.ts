@@ -1,28 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendWarrantyOTP } from "@/lib/email";
-
-// In-memory OTP storage
-const otpStore = new Map<string, { otp: string; expires: number }>();
+import { otpStore } from "@/lib/otp-store";
 
 // Generate 6-digit OTP
 function generateOTP(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-// Clean up expired OTPs every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [email, data] of otpStore.entries()) {
-    if (now > data.expires) {
-      otpStore.delete(email);
-    }
-  }
-}, 5 * 60 * 1000);
-
 // POST - Send or Verify OTP
 export async function POST(request: NextRequest) {
   try {
-    // Read the request body ONCE
     const body = await request.json();
     const { email, action, otp } = body;
 
@@ -42,6 +29,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const normalizedEmail = email.toLowerCase();
+
     // Action: send (default action if not specified)
     if (!action || action === "send") {
       // Generate OTP
@@ -49,10 +38,22 @@ export async function POST(request: NextRequest) {
 
       // Store OTP with 10-minute expiry
       const expires = Date.now() + 10 * 60 * 1000; // 10 minutes
-      otpStore.set(email.toLowerCase(), { otp: generatedOtp, expires });
+      otpStore.set(normalizedEmail, { otp: generatedOtp, expires });
+
+      console.log(`[OTP] Stored for ${normalizedEmail}: ${generatedOtp} (expires: ${new Date(expires).toISOString()})`);
 
       // Send OTP via email
-      await sendWarrantyOTP(email, generatedOtp);
+      try {
+        await sendWarrantyOTP(email, generatedOtp);
+      } catch (emailError) {
+        console.error("[OTP] Email send failed:", emailError);
+        // Clean up stored OTP if email fails
+        otpStore.delete(normalizedEmail);
+        return NextResponse.json(
+          { error: "Failed to send OTP email. Please try again." },
+          { status: 500 }
+        );
+      }
 
       return NextResponse.json(
         { message: "OTP sent successfully to your email" },
@@ -69,8 +70,14 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const normalizedEmail = email.toLowerCase();
       const data = otpStore.get(normalizedEmail);
+
+      console.log(`[OTP] Verification attempt for ${normalizedEmail}:`, {
+        provided: otp,
+        stored: data?.otp,
+        expires: data?.expires ? new Date(data.expires).toISOString() : 'N/A',
+        isExpired: data ? Date.now() > data.expires : true
+      });
 
       if (!data) {
         return NextResponse.json(
@@ -82,21 +89,24 @@ export async function POST(request: NextRequest) {
       // Check expiry
       if (Date.now() > data.expires) {
         otpStore.delete(normalizedEmail);
+        console.log(`[OTP] Expired for ${normalizedEmail}`);
         return NextResponse.json(
           { error: "OTP has expired. Please request a new one." },
           { status: 400 }
         );
       }
 
-      // Verify OTP
-      if (data.otp === otp) {
+      // Verify OTP (trim whitespace and compare as strings)
+      if (data.otp.trim() === otp.trim()) {
         otpStore.delete(normalizedEmail); // Remove after successful verification
+        console.log(`[OTP] Successfully verified for ${normalizedEmail}`);
         return NextResponse.json(
           { message: "Email verified successfully!" },
           { status: 200 }
         );
       }
 
+      console.log(`[OTP] Invalid OTP for ${normalizedEmail}`);
       return NextResponse.json(
         { error: "Invalid OTP. Please try again." },
         { status: 400 }
