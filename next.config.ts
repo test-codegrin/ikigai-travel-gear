@@ -1,4 +1,6 @@
-const nextConfig = {
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
   images: {
     domains: ["localhost"],
   },
@@ -6,12 +8,6 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: '10mb',
     },
-  },
-  api: {
-    bodyParser: {
-      sizeLimit: '10mb',
-    },
-    responseLimit: '10mb',
   },
 };
 

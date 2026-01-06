@@ -322,88 +322,103 @@ export default function WarrantyPage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    if (!emailVerified) {
-      toast.error("Please verify your email address first");
-      return;
-    }
+  if (!emailVerified) {
+    toast.error("Please verify your email address first");
+    return;
+  }
 
-    if (!purchaseDate) {
-      toast.error("Please select a purchase date");
-      return;
-    }
+  if (!purchaseDate) {
+    toast.error("Please select a purchase date");
+    return;
+  }
 
-    if (!formData.purchase_from) {
-      toast.error("Please select where you purchased from");
-      return;
-    }
+  if (!formData.purchase_from) {
+    toast.error("Please select where you purchased from");
+    return;
+  }
 
-    if (!formData.purchase_price || parseFloat(formData.purchase_price) <= 0) {
-      toast.error("Please enter a valid purchase price");
-      return;
-    }
+  if (!formData.purchase_price || parseFloat(formData.purchase_price) <= 0) {
+    toast.error("Please enter a valid purchase price");
+    return;
+  }
 
-    if (!files.invoice_file || !files.warranty_card_file) {
-      toast.error("Please upload both invoice and warranty card files");
-      return;
-    }
+  if (!files.invoice_file || !files.warranty_card_file) {
+    toast.error("Please upload both invoice and warranty card files");
+    return;
+  }
 
-    // Final file validation before submit
-    if (
-      !validateFile(files.invoice_file) ||
-      !validateFile(files.warranty_card_file)
-    ) {
-      return;
-    }
+  // Final file validation before submit
+  if (
+    !validateFile(files.invoice_file) ||
+    !validateFile(files.warranty_card_file)
+  ) {
+    return;
+  }
 
-    setLoading(true);
+  setLoading(true);
 
-    try {
-      const data = new FormData();
+  try {
+    const data = new FormData();
 
-      Object.entries(formData).forEach(([key, value]) => {
-        if (key === "mobile") {
-          data.append(key, `${countryCode}${value}`);
-        } else if (key === "purchase_price") {
-          data.append(key, parseFloat(value).toFixed(2));
-        } else {
-          data.append(key, value);
-        }
-      });
-
-      const year = purchaseDate.getFullYear();
-      const month = String(purchaseDate.getMonth() + 1).padStart(2, "0");
-      const day = String(purchaseDate.getDate()).padStart(2, "0");
-      data.append("purchase_date", `${year}-${month}-${day}`);
-
-      if (files.invoice_file) data.append("invoice_file", files.invoice_file);
-      if (files.warranty_card_file)
-        data.append("warranty_card_file", files.warranty_card_file);
-
-      const response = await fetch(API.ACTIVATE_WARRANT, {
-        method: "POST",
-        body: data,
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to activate warranty");
+    Object.entries(formData).forEach(([key, value]) => {
+      if (key === "mobile") {
+        data.append(key, `${countryCode}${value}`);
+      } else if (key === "purchase_price") {
+        data.append(key, parseFloat(value).toFixed(2));
+      } else {
+        data.append(key, value);
       }
+    });
 
-      setWarrantyId(result.warranty_id);
-      setSuccess(true);
-      toast.success("Success! Your warranty has been activated.");
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to activate warranty";
-      toast.error(message);
-    } finally {
-      setLoading(false);
+    const year = purchaseDate.getFullYear();
+    const month = String(purchaseDate.getMonth() + 1).padStart(2, "0");
+    const day = String(purchaseDate.getDate()).padStart(2, "0");
+    data.append("purchase_date", `${year}-${month}-${day}`);
+
+    if (files.invoice_file) data.append("invoice_file", files.invoice_file);
+    if (files.warranty_card_file)
+      data.append("warranty_card_file", files.warranty_card_file);
+
+    const response = await fetch(API.ACTIVATE_WARRANT, {
+      method: "POST",
+      body: data,
+    });
+
+    // Check if response is JSON before parsing
+    const contentType = response.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      // Handle non-JSON responses (like 413 errors)
+      const text = await response.text();
+      console.error("Non-JSON response:", text);
+      
+      if (response.status === 413) {
+        throw new Error("File size too large. Please upload smaller files (max 4MB total).");
+      }
+      
+      throw new Error("Server returned an invalid response. Please try again.");
     }
-  };
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || "Failed to activate warranty");
+    }
+
+    setWarrantyId(result.warranty_id);
+    setSuccess(true);
+    toast.success("Success! Your warranty has been activated.");
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Failed to activate warranty";
+    toast.error(message);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   if (success) {
     return (
