@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
-import { saveFile } from "@/lib/file-upload";
 import { sendClaimConfirmation } from "@/lib/email";
 
 // Generate claim external ID
@@ -13,14 +12,18 @@ function generateClaimExternalId(): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData();
+    const body = await request.json();
 
-    const warrantyId = formData.get("warranty_id") as string;
-    const defectDescription = formData.get("defect_description") as string;
-    const photoFile = formData.get("photo_file") as File;
-    const videoFile = formData.get("video_file") as File | null;
+    const {
+      warranty_id,
+      defect_description,
+      photo_url,
+      photo_file_id,
+      video_url,
+      video_file_id,
+    } = body;
 
-    if (!warrantyId || !defectDescription || !photoFile) {
+    if (!warranty_id || !defect_description || !photo_url) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -35,7 +38,7 @@ export async function POST(request: NextRequest) {
        WHERE c.warranty_id = ? AND c.is_deleted = 0
        ORDER BY c.claim_register_date DESC
        LIMIT 1`,
-      [parseInt(warrantyId)]
+      [parseInt(warranty_id)]
     )) as RowDataPacket[];
 
     if (existingClaims && existingClaims.length > 0) {
@@ -59,7 +62,7 @@ export async function POST(request: NextRequest) {
       `SELECT w.external_id, w.customer_name, w.customer_email 
        FROM warranties w 
        WHERE w.id = ? AND w.is_deleted = 0`,
-      [parseInt(warrantyId)]
+      [parseInt(warranty_id)]
     )) as RowDataPacket[];
 
     if (!warrantyDetails || warrantyDetails.length === 0) {
@@ -70,17 +73,6 @@ export async function POST(request: NextRequest) {
     }
 
     const warranty = warrantyDetails[0];
-
-    // Upload photo using saveFile utility
-    const photoUpload = await saveFile(photoFile, "claim-photo");
-
-    let videoUrl = null;
-    let videoFileId = null;
-    if (videoFile) {
-      const videoUpload = await saveFile(videoFile, "claim-video");
-      videoUrl = videoUpload.url;
-      videoFileId = videoUpload.fileId;
-    }
 
     // Generate claim external ID
     const claimExternalId = generateClaimExternalId();
@@ -96,17 +88,19 @@ export async function POST(request: NextRequest) {
 
     const pendingStatusId = statuses[0].id;
 
-    // Insert claim into database
+    // Insert claim into database (files already uploaded to ImageKit)
     const result = (await query(
       `INSERT INTO claims 
-       (warranty_id, claim_external_id, defect_description, photo_url, video_url, claim_status_id) 
-       VALUES (?, ?, ?, ?, ?, ?)`,
+       (warranty_id, claim_external_id, defect_description, photo_url, photo_file_id, video_url, video_file_id, claim_status_id) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        parseInt(warrantyId),
+        parseInt(warranty_id),
         claimExternalId,
-        defectDescription,
-        photoUpload.url,
-        videoUrl,
+        defect_description,
+        photo_url,
+        photo_file_id,
+        video_url,
+        video_file_id,
         pendingStatusId,
       ]
     )) as ResultSetHeader;
@@ -121,7 +115,6 @@ export async function POST(request: NextRequest) {
       );
     } catch (emailError) {
       console.error("Failed to send claim confirmation email:", emailError);
-      // Don't fail the request if email fails
     }
 
     return NextResponse.json(

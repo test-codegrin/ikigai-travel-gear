@@ -9,4 +9,5 @@ export const API = {
     CLAIM_STATUSES:"/api/admin/claim-statuses",
     WARRANTY_STATUSES: "/api/admin/warranty-statuses",
     ACTIVATE_WARRANTY: "/api/warranty/activate",
+    CLAIM_WARRANTY: "/api/warranty/claim",
 }

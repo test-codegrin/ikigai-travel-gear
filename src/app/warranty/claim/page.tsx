@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { uploadFileToImageKit } from "@/lib/imagekit-client";
 import {
   Card,
   CardContent,
@@ -36,10 +37,11 @@ import {
 import { FindWarrantyDialog } from "@/components/FindWarrantyDialog";
 import { useRouter } from "next/navigation";
 import { convertToIST } from "@/lib/convertToIST";
+import { API } from "@/lib/api-endpoints";
 
 // File size limits
-const MAX_PHOTO_SIZE = 5 * 1024 * 1024; // 5MB
-const MAX_VIDEO_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_PHOTO_SIZE = 5242880; // 5MB
+const MAX_VIDEO_SIZE = 10485760; // 10MB
 const MAX_PHOTO_SIZE_MB = (MAX_PHOTO_SIZE / (1024 * 1024)).toFixed(1);
 const MAX_VIDEO_SIZE_MB = (MAX_VIDEO_SIZE / (1024 * 1024)).toFixed(1);
 
@@ -52,8 +54,6 @@ function formatFileSize(bytes: number): string {
   return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
 }
 
-
-
 // Main Component
 export default function WarrantyClaimPage() {
   const router = useRouter();
@@ -65,6 +65,12 @@ export default function WarrantyClaimPage() {
   const [claimExternalId, setClaimExternalId] = useState("");
   const [agreePolicy, setAgreePolicy] = useState(false);
   const [findDialogOpen, setFindDialogOpen] = useState(false);
+
+  // Upload progress state
+  const [uploadProgress, setUploadProgress] = useState({
+    photo: 0,
+    video: 0,
+  });
 
   // Preview states
   const [previewDialog, setPreviewDialog] = useState(false);
@@ -115,7 +121,6 @@ export default function WarrantyClaimPage() {
   // Handler for when a warranty is selected from the dialog
   const handleWarrantySelect = (externalId: string) => {
     setWarrantyId(externalId);
-    // Directly search with the external ID
     searchWarrantyById(externalId);
   };
 
@@ -123,7 +128,7 @@ export default function WarrantyClaimPage() {
     router.push("/warranty/track-claim");
   };
 
-  // Separate search function that accepts ID parameter
+  // Search warranty by ID
   const searchWarrantyById = async (id: string) => {
     if (!id.trim()) {
       toast.error("Please enter a warranty ID");
@@ -142,7 +147,6 @@ export default function WarrantyClaimPage() {
         throw new Error(data.error || "Warranty not found");
       }
 
-      // Set warranty data
       setWarrantyData({
         id: data.warranty.id,
         customer_name: data.warranty.customer_name,
@@ -158,7 +162,6 @@ export default function WarrantyClaimPage() {
         registration_date: data.warranty.registration_date,
       });
 
-      // Check if there's ANY existing claim (regardless of status)
       if (data.existing_claim) {
         setExistingClaim({
           claim_external_id: data.existing_claim.claim_external_id,
@@ -183,7 +186,6 @@ export default function WarrantyClaimPage() {
     }
   };
 
-  // Original search function (calls searchWarrantyById with current state)
   const handleSearchWarranty = () => {
     searchWarrantyById(warrantyId);
   };
@@ -278,14 +280,6 @@ export default function WarrantyClaimPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Block if there's ANY existing claim
-    // if (existingClaim) {
-    //   toast.error(
-    //     "This warranty already has a claim. Only one claim per warranty is allowed."
-    //   );
-    //   return;
-    // }
-
     if (!claimData.defect_description.trim()) {
       toast.error("Please describe the defect");
       return;
@@ -296,26 +290,58 @@ export default function WarrantyClaimPage() {
       return;
     }
 
+    if (!validateFile(files.photo_file, "photo")) {
+      return;
+    }
+
+    if (files.video_file && !validateFile(files.video_file, "video")) {
+      return;
+    }
+
     if (!agreePolicy) {
       toast.error("Please agree to the warranty claim policy");
       return;
     }
 
     setLoading(true);
+    setUploadProgress({ photo: 0, video: 0 });
 
     try {
-      const formData = new FormData();
-      formData.append("warranty_id", warrantyData.id.toString());
-      formData.append("defect_description", claimData.defect_description);
-      formData.append("photo_file", files.photo_file);
+      // Upload photo to ImageKit
+      const photoUpload = await uploadFileToImageKit(
+        files.photo_file,
+        "claim-photo",
+        (progress) => {
+          setUploadProgress((prev) => ({ ...prev, photo: progress }));
+        }
+      );
 
+      let videoUpload = null;
       if (files.video_file) {
-        formData.append("video_file", files.video_file);
+        videoUpload = await uploadFileToImageKit(
+          files.video_file,
+          "claim-video",
+          (progress) => {
+            setUploadProgress((prev) => ({ ...prev, video: progress }));
+          }
+        );
       }
 
-      const response = await fetch("/api/warranty/claim", {
+
+      // Send form data with ImageKit URLs
+      const response = await fetch(API.CLAIM_WARRANTY, {
         method: "POST",
-        body: formData,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          warranty_id: warrantyData.id,
+          defect_description: claimData.defect_description,
+          photo_url: photoUpload.url,
+          photo_file_id: photoUpload.fileId,
+          video_url: videoUpload?.url || null,
+          video_file_id: videoUpload?.fileId || null,
+        }),
       });
 
       const result = await response.json();
@@ -331,8 +357,10 @@ export default function WarrantyClaimPage() {
       const message =
         error instanceof Error ? error.message : "Failed to submit claim";
       toast.error(message);
+      console.error("Claim submission error:", error);
     } finally {
       setLoading(false);
+      setUploadProgress({ photo: 0, video: 0 });
     }
   };
 
@@ -437,7 +465,7 @@ export default function WarrantyClaimPage() {
                     disabled={searchLoading}
                     className="flex h-9 sm:h-10 px-4 sm:px-6 shrink-0 text-xs sm:text-sm"
                   >
-                    <FileSearch />
+                    <FileSearch className="w-4 h-4 mr-2" />
                     Find Warranty ID
                   </Button>
                   <Button
@@ -447,7 +475,7 @@ export default function WarrantyClaimPage() {
                     disabled={searchLoading}
                     className="flex h-9 sm:h-10 px-4 sm:px-6 shrink-0 text-xs sm:text-sm"
                   >
-                    <LocateFixed />
+                    <LocateFixed className="w-4 h-4 mr-2" />
                     Track Your Claim
                   </Button>
                 </div>
@@ -475,7 +503,7 @@ export default function WarrantyClaimPage() {
             </div>
           </div>
 
-          {/* Existing Claim Warning - Show for ANY claim status */}
+          {/* Existing Claim Warning */}
           {existingClaim && (
             <div
               className={`mt-4 rounded-lg p-3 sm:p-4 ${
@@ -596,10 +624,9 @@ export default function WarrantyClaimPage() {
                       }`}
                     >
                       <span className="font-medium">Registered on:</span>{" "}
-                      {convertToIST(existingClaim.claim_register_date,false)}
+                      {convertToIST(existingClaim.claim_register_date, false)}
                     </p>
 
-                    {/* Show Claim Result Date if exists */}
                     {existingClaim.claim_result_date && (
                       <p
                         className={`text-xs ${
@@ -612,12 +639,11 @@ export default function WarrantyClaimPage() {
                         }`}
                       >
                         <span className="font-medium">Result Date:</span>{" "}
-                        {convertToIST(existingClaim.claim_result_date,false)}
+                        {convertToIST(existingClaim.claim_result_date, false)}
                       </p>
                     )}
                   </div>
 
-                  {/* Show Admin Notes if exists */}
                   {existingClaim.admin_notes && (
                     <div
                       className={`mt-3 p-2 rounded border ${
@@ -660,10 +686,10 @@ export default function WarrantyClaimPage() {
             </div>
           )}
 
-          {/* Warranty Details (Auto-filled) */}
+          {/* Warranty Details and Claim Form */}
           {warrantyFound && (
             <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
-              {/* Customer Information Section */}
+              {/* Warranty Information Section */}
               <div className="space-y-4 sm:space-y-5 pt-4">
                 <h3 className="text-sm sm:text-base font-semibold text-gray-900">
                   Warranty Information
@@ -732,7 +758,7 @@ export default function WarrantyClaimPage() {
                   <div>
                     <Label className="text-xs sm:text-sm">Purchase Date</Label>
                     <Input
-                      value={convertToIST(warrantyData.purchase_date,false)}
+                      value={convertToIST(warrantyData.purchase_date, false)}
                       disabled
                       className="mt-1 h-9 sm:h-10 bg-gray-50 text-sm sm:text-base"
                     />
@@ -774,7 +800,7 @@ export default function WarrantyClaimPage() {
                       Registration Date
                     </Label>
                     <Input
-                      value={convertToIST(warrantyData.registration_date,false)}
+                      value={convertToIST(warrantyData.registration_date, false)}
                       disabled
                       className="mt-1 h-9 sm:h-10 bg-gray-50 text-sm sm:text-base"
                     />
@@ -782,7 +808,7 @@ export default function WarrantyClaimPage() {
                 </div>
               </div>
 
-              {/* Claim Form Section - Only show if NO existing claim */}
+              {/* Claim Form Section */}
               {existingClaim?.claim_status !== "under_review" && (
                 <>
                   <div className="border-t pt-4 sm:pt-6">
@@ -1008,7 +1034,7 @@ export default function WarrantyClaimPage() {
                         <>
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                           <span className="text-sm sm:text-base">
-                            Submitting...
+                            Submitting Claim...
                           </span>
                         </>
                       ) : !agreePolicy ? (

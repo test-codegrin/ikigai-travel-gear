@@ -52,8 +52,8 @@ import { countryCodes } from "@/lib/country-codes";
 import { purchaseFromOptions } from "@/lib/purchase-option";
 import { API } from "@/lib/api-endpoints";
 
-// File size limit (10MB per file for direct upload)
-const MAX_FILE_SIZE = 10485760; // 10MB
+// File size limit (5MB per file for direct upload)
+const MAX_FILE_SIZE = 5242880; // 5MB
 const MAX_FILE_SIZE_MB = (MAX_FILE_SIZE / (1024 * 1024)).toFixed(1);
 
 function formatDate(date: Date | undefined) {
@@ -386,8 +386,6 @@ export default function WarrantyPage() {
         }
       );
 
-      toast.info("Processing warranty registration...");
-
       // Format date
       const year = purchaseDate.getFullYear();
       const month = String(purchaseDate.getMonth() + 1).padStart(2, "0");
@@ -507,6 +505,7 @@ export default function WarrantyPage() {
                     required
                     value={formData.name}
                     onChange={handleInputChange}
+                     disabled={loading}
                     placeholder="John Doe"
                     className="mt-1 h-9 sm:h-10 text-sm sm:text-base"
                   />
@@ -518,7 +517,8 @@ export default function WarrantyPage() {
                     Mobile Number <span className="text-red-500">*</span>
                   </Label>
                   <div className="flex gap-2 mt-1">
-                    <Select value={countryCode} onValueChange={setCountryCode}>
+                   
+                    <Select value={countryCode} onValueChange={setCountryCode} disabled={loading}>
                       <SelectTrigger className="w-auto h-auto text-xs sm:text-sm">
                         <SelectValue />
                       </SelectTrigger>
@@ -539,6 +539,7 @@ export default function WarrantyPage() {
                       onChange={handleMobileChange}
                       placeholder="9876543210"
                       maxLength={10}
+                    disabled={loading}
                       className="h-9 sm:h-10 flex-1 text-sm sm:text-base"
                     />
                   </div>
@@ -562,7 +563,7 @@ export default function WarrantyPage() {
                     onChange={handleInputChange}
                     placeholder="john@example.com"
                     className="h-9 sm:h-10 flex-1 text-sm sm:text-base"
-                    disabled={emailVerified || otpSent}
+                    disabled={emailVerified || otpSent || loading}
                   />
 
                   {/* Send OTP button - desktop only */}
@@ -676,6 +677,7 @@ export default function WarrantyPage() {
                 <Textarea
                   id="address"
                   name="address"
+                  disabled={loading}
                   required
                   value={formData.address}
                   onChange={handleInputChange}
@@ -694,6 +696,7 @@ export default function WarrantyPage() {
                   <Input
                     id="city"
                     name="city"
+                    disabled={loading}
                     required
                     value={formData.city}
                     onChange={handleInputChange}
@@ -712,6 +715,7 @@ export default function WarrantyPage() {
                     name="pincode"
                     type="tel"
                     required
+                    disabled={loading}
                     value={formData.pincode}
                     onChange={handlePincodeChange}
                     placeholder="123456"
@@ -735,6 +739,7 @@ export default function WarrantyPage() {
                       id="purchase-date"
                       value={dateValue}
                       placeholder="Select date"
+                      disabled={loading}
                       className="h-9 sm:h-10 pr-10 text-sm sm:text-base"
                       onChange={(e) => {
                         const date = new Date(e.target.value);
@@ -759,6 +764,7 @@ export default function WarrantyPage() {
                         <Button
                           type="button"
                           variant="ghost"
+                          disabled={loading}
                           className="absolute top-1/2 right-2 size-6 -translate-y-1/2 p-0"
                         >
                           <CalendarIcon className="size-3.5" />
@@ -802,6 +808,7 @@ export default function WarrantyPage() {
                     name="purchase_price"
                     type="text"
                     required
+                    disabled={loading}
                     value={formData.purchase_price}
                     onChange={handlePriceChange}
                     placeholder="2999.00"
@@ -822,6 +829,7 @@ export default function WarrantyPage() {
                     onValueChange={(value) =>
                       setFormData({ ...formData, purchase_from: value })
                     }
+                    disabled={loading}
                     required
                   >
                     <SelectTrigger className="mt-1 h-9 w-full sm:h-10 text-sm sm:text-sm">
@@ -886,6 +894,7 @@ export default function WarrantyPage() {
                           type="button"
                           variant="outline"
                           size="sm"
+                         
                           className="flex-1 h-7 sm:h-8 text-xs"
                           onClick={() => handleViewFile("invoice_file")}
                         >
@@ -896,6 +905,7 @@ export default function WarrantyPage() {
                           type="button"
                           variant="destructive"
                           size="sm"
+                          disabled={loading}
                           className="flex-1 h-7 sm:h-8 text-xs"
                           onClick={() => handleRemoveFile("invoice_file")}
                         >
@@ -962,6 +972,7 @@ export default function WarrantyPage() {
                           type="button"
                           variant="outline"
                           size="sm"
+                       
                           className="flex-1 h-7 sm:h-8 text-xs"
                           onClick={() => handleViewFile("warranty_card_file")}
                         >
@@ -973,6 +984,7 @@ export default function WarrantyPage() {
                           variant="destructive"
                           size="sm"
                           className="flex-1 h-7 sm:h-8 text-xs"
+                          disabled={loading}
                           onClick={() =>
                             handleRemoveFile("warranty_card_file")
                           }
