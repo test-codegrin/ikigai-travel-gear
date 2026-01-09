@@ -235,7 +235,7 @@ export async function sendWarrantyConfirmation(
   const mailOptions = {
     from: process.env.EMAIL_FROM,
     to: email,
-    subject: "Warranty Registration Successful - IKIGAI Travel Gear",
+    subject: "Warranty Registration Received - IKIGAI Travel Gear",
     html: `
      <div style="margin:0; padding:0; background-color:#f5f5f5;">
   <style>
@@ -276,18 +276,18 @@ export async function sendWarrantyConfirmation(
           <tr>
             <td style="padding:0 24px 24px 24px; font-family:'Mulish', Arial, sans-serif;">
               <p style="margin:0 0 20px 0; font-size:15px; line-height:1.6; color:#000000; font-family:'Mulish', Arial, sans-serif;">
-                Your warranty has been successfully registered with Ikigai Travel Gear. We're committed to providing you with excellent service and support.
+                Thank you for submitting your warranty registration with Ikigai Travel Gear. Your registration is currently <strong>under review</strong>.
               </p>
 
-              <!-- Warranty ID Box -->
-              <table cellpadding="0" cellspacing="0" role="presentation" style="margin-top:20px; background-color:#ffffff; border-radius:6px; border:2px solid #f29559; width:100%; font-family:'Mulish', Arial, sans-serif;">
+              <!-- Registration ID Box (Orange for Pending) -->
+              <table cellpadding="0" cellspacing="0" role="presentation" style="margin-top:20px; background-color:#fff7ed; border-radius:6px; border:2px solid #f29559; width:100%; font-family:'Mulish', Arial, sans-serif;">
                 <tr>
                   <td style="padding:16px 20px;">
                     <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
                       <tr>
                         <td style="padding-bottom:8px;">
                           <span style="font-size:13px; color:#000000; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; font-family:'Mulish', Arial, sans-serif;">
-                            Warranty ID
+                            Registration ID
                           </span>
                         </td>
                       </tr>
@@ -298,14 +298,37 @@ export async function sendWarrantyConfirmation(
                           </span>
                         </td>
                       </tr>
+                      <tr>
+                        <td style="padding-top:8px;">
+                          <span style="display:inline-block; padding:4px 12px; background-color:#f29559; color:#ffffff; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; border-radius:4px; font-family:'Mulish', Arial, sans-serif;">
+                            PENDING APPROVAL
+                          </span>
+                        </td>
+                      </tr>
                     </table>
                   </td>
                 </tr>
               </table>
 
               <p style="margin:20px 0 0 0; font-size:13px; line-height:1.5; color:#000000; font-family:'Mulish', Arial, sans-serif;">
-                Please save this warranty ID for your records. You may need it for future service requests.
+                Please save this registration ID for your records. Our team will review your submission, and you will receive a confirmation email once your warranty is approved and activated.
               </p>
+
+              <!-- What's Next Section -->
+              <table cellpadding="0" cellspacing="0" role="presentation" style="margin-top:20px; background-color:#f0f9ff; border-radius:6px; border:1px solid #bae6fd; width:100%; font-family:'Mulish', Arial, sans-serif;">
+                <tr>
+                  <td style="padding:16px 20px;">
+                    <p style="margin:0 0 8px 0; font-size:14px; color:#0c4a6e; font-weight:600; font-family:'Mulish', Arial, sans-serif;">
+                      What's Next?
+                    </p>
+                    <p style="margin:0; font-size:13px; line-height:1.6; color:#0c4a6e; font-family:'Mulish', Arial, sans-serif;">
+                      • Our team will review your warranty registration<br/>
+                      • You'll receive an email once approved (typically within 2-3 business days)<br/>
+                      • Your 3-year warranty coverage will begin upon approval
+                    </p>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
 
@@ -349,17 +372,159 @@ export async function sendWarrantyConfirmation(
   await transporter.sendMail(mailOptions);
 }
 
+
 export async function sendWarrantyStatusUpdate(
   email: string,
   name: string,
   externalId: string,
-  statusName: string,
-  statusMessage: string
+  status: "pending" | "registered" | "claimed" | "replaced" | "rejected" | "expired"
 ) {
+  // Define status configurations
+  const statusConfig = {
+    pending: {
+      subject: `Warranty Registration Under Review - ${externalId}`,
+      title: "Your Warranty Registration is Under Review",
+      statusName: "Pending Approval",
+      statusColor: "#f59e0b", // Orange
+      statusBg: "#fef3c7",
+      badge: "PENDING",
+      message: `Thank you for submitting your warranty registration. Our team is currently reviewing your submission and verifying the provided documents. This process typically takes 2-3 business days.`,
+      additionalInfo: `
+        <table cellpadding="0" cellspacing="0" role="presentation" style="margin-top:20px; background-color:#fffbeb; border-radius:6px; border:1px solid #f59e0b; width:100%; font-family:'Mulish', Arial, sans-serif;">
+          <tr>
+            <td style="padding:16px 20px;">
+              <p style="margin:0 0 8px 0; font-size:14px; color:#92400e; font-weight:600; font-family:'Mulish', Arial, sans-serif;">
+                What Happens Next?
+              </p>
+              <p style="margin:0; font-size:13px; line-height:1.6; color:#92400e; font-family:'Mulish', Arial, sans-serif;">
+                • Our team will verify your purchase details<br/>
+                • We'll review the uploaded documents<br/>
+                • You'll receive an email once approved<br/>
+                • Your warranty will be activated upon approval
+              </p>
+            </td>
+          </tr>
+        </table>
+      `,
+      closingMessage: "We'll notify you as soon as your warranty is approved. Thank you for your patience!"
+    },
+    registered: {
+      subject: `Warranty Successfully Activated - ${externalId}`,
+      title: "Congratulations! Your Warranty is Now Active",
+      statusName: "Registered & Active",
+      statusColor: "#10b981", // Green
+      statusBg: "#d1fae5",
+      badge: "REGISTERED",
+      message: `Congratulations! Your warranty has been successfully registered and activated. Your 3-year coverage begins today and you're now protected under our comprehensive warranty program.`,
+      additionalInfo: `
+      
+      `,
+      closingMessage: "Thank you for choosing IKIGAI Travel Gear. We're committed to providing you with the best products and service."
+    },
+    claimed: {
+      subject: `Warranty Claim Received - ${externalId}`,
+      title: "Your Warranty Claim is Being Processed",
+      statusName: "Claim Under Review",
+      statusColor: "#3b82f6", // Blue
+      statusBg: "#dbeafe",
+      badge: "CLAIMED",
+      message: `We have received your warranty claim and our team is currently reviewing it. We will assess the issue and determine the appropriate solution as per our warranty policy.`,
+      additionalInfo: `
+        <table cellpadding="0" cellspacing="0" role="presentation" style="margin-top:20px; background-color:#eff6ff; border-radius:6px; border:1px solid #3b82f6; width:100%; font-family:'Mulish', Arial, sans-serif;">
+          <tr>
+            <td style="padding:16px 20px;">
+              <p style="margin:0 0 8px 0; font-size:14px; color:#1e40af; font-weight:600; font-family:'Mulish', Arial, sans-serif;">
+                Claim Processing Steps:
+              </p>
+              <p style="margin:0; font-size:13px; line-height:1.6; color:#1e40af; font-family:'Mulish', Arial, sans-serif;">
+                • Our team will review your claim details<br/>
+                • We may contact you for additional information<br/>
+                • An assessment will be made based on warranty terms<br/>
+                • You'll be notified of the decision and next steps<br/>
+                • Processing typically takes 5-7 business days
+              </p>
+            </td>
+          </tr>
+        </table>
+      `,
+      closingMessage: "We appreciate your patience while we process your claim. We'll keep you updated on the progress."
+    },
+    replaced: {
+      subject: `Warranty Claim Approved - Replacement Initiated - ${externalId}`,
+      title: "Your Product Replacement Has Been Approved",
+      statusName: "Replacement Approved",
+      statusColor: "#8b5cf6", // Purple
+      statusBg: "#ede9fe",
+      badge: "REPLACED",
+      message: `Great news! Your warranty claim has been approved and we're processing a replacement for your product. Your replacement will be shipped to your registered address soon.`,
+      additionalInfo: `
+        <table cellpadding="0" cellspacing="0" role="presentation" style="margin-top:20px; background-color:#f5f3ff; border-radius:6px; border:1px solid #8b5cf6; width:100%; font-family:'Mulish', Arial, sans-serif;">
+          <tr>
+            <td style="padding:16px 20px;">
+              <p style="margin:0 0 8px 0; font-size:14px; color:#5b21b6; font-weight:600; font-family:'Mulish', Arial, sans-serif;">
+                What to Expect:
+              </p>
+              <p style="margin:0; font-size:13px; line-height:1.6; color:#5b21b6; font-family:'Mulish', Arial, sans-serif;">
+                • Your replacement product will be shipped within few days<br/>
+                • You'll receive tracking information via email<br/>
+                • Keep this warranty ID for future reference
+              </p>
+            </td>
+          </tr>
+        </table>
+      `,
+      closingMessage: "Thank you for your patience. We're committed to ensuring your complete satisfaction with IKIGAI Travel Gear."
+    },
+    rejected: {
+      subject: `Warranty Claim Status Update - ${externalId}`,
+      title: "Warranty Claim Could Not Be Approved",
+      statusName: "Claim Rejected",
+      statusColor: "#ef4444", // Red
+      statusBg: "#fee2e2",
+      badge: "REJECTED",
+      message: `After careful review, we regret to inform you that your warranty claim could not be approved. This decision is based on our warranty terms and conditions and the assessment of your claim.`,
+      additionalInfo: `
+        <table cellpadding="0" cellspacing="0" role="presentation" style="margin-top:20px; background-color:#fef2f2; border-radius:6px; border:1px solid #ef4444; width:100%; font-family:'Mulish', Arial, sans-serif;">
+          <tr>
+            <td style="padding:16px 20px;">
+              <p style="margin:0 0 8px 0; font-size:14px; color:#991b1b; font-weight:600; font-family:'Mulish', Arial, sans-serif;">
+                Common Reasons for Rejection:
+              </p>
+              <p style="margin:0; font-size:13px; line-height:1.6; color:#991b1b; font-family:'Mulish', Arial, sans-serif;">
+                • Damage caused by misuse or negligence<br/>
+                • Normal wear and tear<br/>
+                • Unauthorized repairs or modifications<br/>
+                • Claim submitted outside warranty period<br/>
+                • Issue not covered under warranty terms<br/>
+                • Insufficient documentation or evidence
+              </p>
+            </td>
+          </tr>
+        </table>
+      `,
+      closingMessage: "If you believe this decision is incorrect or need further clarification, please contact our support team. We're here to help address your concerns."
+    },
+    expired: {
+      subject: `Warranty Status Update - ${externalId}`,
+      title: "Your Warranty Coverage Has Expired",
+      statusName: "Warranty Expired",
+      statusColor: "#6b7280", // Gray
+      statusBg: "#f3f4f6",
+      badge: "EXPIRED",
+      message: `Your warranty coverage period has ended. While your warranty is no longer active, we still value you as a customer and are here to assist with any service needs you may have.`,
+      additionalInfo: `
+
+      `,
+      closingMessage: "Thank you for being a valued IKIGAI Travel Gear customer. We look forward to serving you again!"
+    }
+  };
+
+  const config = statusConfig[status];
+
   const mailOptions = {
     from: process.env.EMAIL_FROM,
     to: email,
-    subject: `Warranty Status Update - ${externalId}`,
+    subject: config.subject,
     html: `
      <div style="margin:0; padding:0; background-color:#f5f5f5;">
   <style>
@@ -388,9 +553,18 @@ export async function sendWarrantyStatusUpdate(
             </td>
           </tr>
 
+          <!-- Title Banner -->
+          <tr>
+            <td style="padding:24px 24px 16px 24px; font-family:'Mulish', Arial, sans-serif;">
+              <h1 style="margin:0; font-size:20px; line-height:1.4; color:#000000; font-weight:700; font-family:'Mulish', Arial, sans-serif;">
+                ${config.title}
+              </h1>
+            </td>
+          </tr>
+
           <!-- Body -->
           <tr>
-            <td style="padding:32px 24px 16px 24px; font-family:'Mulish', Arial, sans-serif;">
+            <td style="padding:0 24px 16px 24px; font-family:'Mulish', Arial, sans-serif;">
               <p style="margin:0; font-size:15px; line-height:1.6; color:#000000; font-family:'Mulish', Arial, sans-serif;">
                 Dear ${name},
               </p>
@@ -400,11 +574,11 @@ export async function sendWarrantyStatusUpdate(
           <tr>
             <td style="padding:0 24px 24px 24px; font-family:'Mulish', Arial, sans-serif;">
               <p style="margin:0 0 20px 0; font-size:15px; line-height:1.6; color:#000000; font-family:'Mulish', Arial, sans-serif;">
-                We wanted to inform you that the status of your warranty has been updated.
+                ${config.message}
               </p>
 
-              <!-- Warranty ID Box -->
-              <table cellpadding="0" cellspacing="0" role="presentation" style="margin-top:20px; background-color:#ffffff; border-radius:6px; border:2px solid #f29559; width:100%; font-family:'Mulish', Arial, sans-serif;">
+              <!-- Warranty ID Box with Status -->
+              <table cellpadding="0" cellspacing="0" role="presentation" style="margin-top:20px; background-color:${config.statusBg}; border-radius:6px; border:2px solid ${config.statusColor}; width:100%; font-family:'Mulish', Arial, sans-serif;">
                 <tr>
                   <td style="padding:16px 20px;">
                     <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
@@ -416,24 +590,28 @@ export async function sendWarrantyStatusUpdate(
                         </td>
                       </tr>
                       <tr>
-                        <td style="padding-bottom:16px;">
-                          <span style="font-size:20px; color:#f29559; font-weight:700; letter-spacing:0.5px; font-family:'Mulish', Arial, sans-serif;">
+                        <td style="padding-bottom:12px;">
+                          <span style="font-size:20px; color:${config.statusColor}; font-weight:700; letter-spacing:0.5px; font-family:'Mulish', Arial, sans-serif;">
                             ${externalId}
                           </span>
                         </td>
                       </tr>
                       <tr>
-                        <td style="padding-top:12px; border-top:1px solid #e5e5e5;">
-                          <span style="font-size:13px; color:#000000; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; font-family:'Mulish', Arial, sans-serif;">
-                            Current Status
-                          </span>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding-top:6px;">
-                          <span style="font-size:18px; color:#000000; font-weight:600; font-family:'Mulish', Arial, sans-serif;">
-                            ${statusName}
-                          </span>
+                        <td style="padding-top:12px; border-top:1px solid ${config.statusColor};">
+                          <table cellpadding="0" cellspacing="0" role="presentation">
+                            <tr>
+                              <td>
+                                <span style="font-size:13px; color:#000000; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; font-family:'Mulish', Arial, sans-serif; margin-right:12px;">
+                                  Status:
+                                </span>
+                              </td>
+                              <td>
+                                <span style="display:inline-block; padding:4px 12px; background-color:${config.statusColor}; color:#ffffff; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; border-radius:4px; font-family:'Mulish', Arial, sans-serif;">
+                                  ${config.badge}
+                                </span>
+                              </td>
+                            </tr>
+                          </table>
                         </td>
                       </tr>
                     </table>
@@ -441,9 +619,8 @@ export async function sendWarrantyStatusUpdate(
                 </tr>
               </table>
 
-              <p style="margin:20px 0 0 0; font-size:15px; line-height:1.6; color:#000000; font-family:'Mulish', Arial, sans-serif;">
-                ${statusMessage}
-              </p>
+              ${config.additionalInfo}
+
             </td>
           </tr>
 
@@ -454,13 +631,13 @@ export async function sendWarrantyStatusUpdate(
             </td>
           </tr>
 
-          <!-- Contact Support -->
+          <!-- Contact Support & Signature -->
           <tr>
             <td style="padding:24px; font-family:'Mulish', Arial, sans-serif;">
-              <p style="margin:0 0 8px 0; font-size:14px; line-height:1.6; color:#000000; font-family:'Mulish', Arial, sans-serif;">
-                If you have any questions or concerns, please don't hesitate to contact our support team.
+              <p style="margin:0 0 12px 0; font-size:14px; line-height:1.6; color:#000000; font-family:'Mulish', Arial, sans-serif;">
+                ${config.closingMessage}
               </p>
-              <p style="margin:8px 0 0 0; font-size:15px; line-height:1.6; color:#000000; font-weight:600; font-family:'Mulish', Arial, sans-serif;">
+              <p style="margin:12px 0 0 0; font-size:15px; line-height:1.6; color:#000000; font-weight:600; font-family:'Mulish', Arial, sans-serif;">
                 Best regards,<br/>
                 Ikigai Travel Gear Team
               </p>
@@ -471,8 +648,8 @@ export async function sendWarrantyStatusUpdate(
           <tr>
             <td style="padding:20px 24px; background-color:#f5f5f5; font-family:'Mulish', Arial, sans-serif;">
               <p style="margin:0; font-size:12px; line-height:1.5; color:#666666; text-align:center; font-family:'Mulish', Arial, sans-serif;">
-                This email was sent regarding your warranty status update with Ikigai Travel Gear.<br/>
-                If you did not expect this email, please contact our support team immediately.
+                This email was sent regarding your warranty with Ikigai Travel Gear.<br/>
+                If you have any questions, please contact our support team at care@ikigaitravelgear.com
               </p>
             </td>
           </tr>
@@ -487,6 +664,8 @@ export async function sendWarrantyStatusUpdate(
 
   await transporter.sendMail(mailOptions);
 }
+
+
 // Send Contact Form Email to Admin
 export async function sendContactFormEmail(
   name: string,

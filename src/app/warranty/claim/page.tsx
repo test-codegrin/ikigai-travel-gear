@@ -54,6 +54,52 @@ function formatFileSize(bytes: number): string {
   return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
 }
 
+// Status configuration helper
+function getStatusConfig(status: string) {
+  const statusConfigs: Record<string, { 
+    color: string; 
+    bg: string; 
+    label: string;
+  }> = {
+    pending: {
+      color: "text-orange-700",
+      bg: "bg-orange-50 border-orange-300",
+      label: "Pending Approval",
+    },
+    registered: {
+      color: "text-green-700",
+      bg: "bg-green-50 border-green-300",
+      label: "Registered & Active",
+    },
+    claimed: {
+      color: "text-blue-700",
+      bg: "bg-blue-50 border-blue-300",
+      label: "Claim Submitted",
+    },
+    replaced: {
+      color: "text-purple-700",
+      bg: "bg-purple-50 border-purple-300",
+      label: "Replacement Approved",
+    },
+    rejected: {
+      color: "text-red-700",
+      bg: "bg-red-50 border-red-300",
+      label: "Rejected",
+    },
+    expired: {
+      color: "text-gray-700",
+      bg: "bg-gray-50 border-gray-300",
+      label: "Expired",
+    }
+  };
+
+  return statusConfigs[status.toLowerCase()] || {
+    color: "text-gray-700",
+    bg: "bg-gray-50 border-gray-300",
+    label: status,
+  };
+}
+
 // Main Component
 export default function WarrantyClaimPage() {
   const router = useRouter();
@@ -117,6 +163,9 @@ export default function WarrantyClaimPage() {
     photo_preview: null as string | null,
     video_preview: null as string | null,
   });
+
+  // Check if warranty is pending approval
+  const isPendingApproval = warrantyData.warranty_status.toLowerCase() === "pending";
 
   // Handler for when a warranty is selected from the dialog
   const handleWarrantySelect = (externalId: string) => {
@@ -327,7 +376,6 @@ export default function WarrantyClaimPage() {
         );
       }
 
-
       // Send form data with ImageKit URLs
       const response = await fetch(API.CLAIM_WARRANTY, {
         method: "POST",
@@ -503,6 +551,26 @@ export default function WarrantyClaimPage() {
             </div>
           </div>
 
+          {/* Pending Approval Warning */}
+          {warrantyFound && isPendingApproval && (
+            <div className="mt-4 rounded-lg p-3 sm:p-4 bg-orange-50 border border-orange-300">
+              <div className="flex items-start gap-2 sm:gap-3">
+                <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 shrink-0 mt-0.5 text-orange-600" />
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-xs sm:text-sm text-orange-900">
+                    Warranty Registration Pending Approval
+                  </h3>
+                  <p className="text-xs sm:text-sm mt-1 text-orange-800">
+                    Your warranty registration is currently under review by our team. You cannot submit a claim until your warranty is approved and activated.
+                  </p>
+                  <p className="text-xs sm:text-sm mt-2 text-orange-800">
+                    You will receive an email notification once your warranty is approved.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Existing Claim Warning */}
           {existingClaim && (
             <div
@@ -626,7 +694,6 @@ export default function WarrantyClaimPage() {
                       <span className="font-medium">Registered on:</span>{" "}
                       {convertToIST(existingClaim.claim_register_date, false)}
                     </p>
-
                     {existingClaim.claim_result_date && (
                       <p
                         className={`text-xs ${
@@ -689,11 +756,22 @@ export default function WarrantyClaimPage() {
           {/* Warranty Details and Claim Form */}
           {warrantyFound && (
             <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
-              {/* Warranty Information Section */}
+              {/* Warranty Information Section with Status Badge */}
               <div className="space-y-4 sm:space-y-5 pt-4">
-                <h3 className="text-sm sm:text-base font-semibold text-gray-900">
-                  Warranty Information
-                </h3>
+                {/* Header with Status Badge */}
+                <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b">
+                  <h3 className="text-sm sm:text-base font-semibold text-gray-900">
+                    Warranty Information
+                  </h3>
+                  
+                  {warrantyData.warranty_status && (
+                    <div className={`px-3 py-1.5 rounded-md border ${getStatusConfig(warrantyData.warranty_status).bg}`}>
+                      <span className={`text-xs sm:text-sm font-bold ${getStatusConfig(warrantyData.warranty_status).color} uppercase tracking-wide`}>
+                        {getStatusConfig(warrantyData.warranty_status).label}
+                      </span>
+                    </div>
+                  )}
+                </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
@@ -783,18 +861,7 @@ export default function WarrantyClaimPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                  <div>
-                    <Label className="text-xs sm:text-sm">
-                      Warranty Status
-                    </Label>
-                    <Input
-                      value={warrantyData.warranty_status}
-                      disabled
-                      className="mt-1 h-9 sm:h-10 bg-gray-50 text-sm sm:text-base capitalize"
-                    />
-                  </div>
-
+                <div className="grid grid-cols-1 gap-3 sm:gap-4">
                   <div>
                     <Label className="text-xs sm:text-sm">
                       Registration Date
@@ -808,8 +875,8 @@ export default function WarrantyClaimPage() {
                 </div>
               </div>
 
-              {/* Claim Form Section */}
-              {existingClaim?.claim_status !== "under_review" && (
+              {/* Claim Form Section - Only show if not pending and no existing claim */}
+              {!isPendingApproval && existingClaim?.claim_status !== "under_review" && (
                 <>
                   <div className="border-t pt-4 sm:pt-6">
                     <h3 className="text-sm sm:text-base font-semibold text-gray-900 mb-4">

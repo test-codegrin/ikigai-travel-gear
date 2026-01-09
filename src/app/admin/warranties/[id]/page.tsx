@@ -47,6 +47,7 @@ interface WarrantyDetail {
   purchase_date: string;
   purchase_price: number;
   purchase_from: string;
+  invoice_id:string;
   invoice_file_url: string;
   warranty_card_file_url: string;
   warranty_status_id: number;
@@ -465,6 +466,17 @@ export default function WarrantyDetailPage() {
                 </div>
               </div>
 
+            <div className="flex items-start gap-3">
+                <FileText className="w-4 h-4 text-gray-400 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    Invoice Id
+                  </Label>
+                  <p className="text-base text-gray-900 mt-1 capitalize">
+                    {warranty.invoice_id}
+                  </p>
+                </div>
+              </div>
               <div className="flex items-start gap-3">
                 <Calendar className="w-4 h-4 text-gray-400 mt-0.5" />
                 <div className="flex-1 min-w-0">

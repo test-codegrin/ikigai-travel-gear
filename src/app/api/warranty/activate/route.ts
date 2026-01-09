@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
       purchase_date,
       purchase_from,
       purchase_price,
+      invoice_id,
       invoice_file_url,
       invoice_file_id,
       warranty_card_file_url,
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
     } = body;
 
     // Validation
-    if (!name || !email || !mobile || !purchase_date || !purchase_from) {
+    if (!name || !email || !mobile || !purchase_date || !purchase_from || !invoice_id) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -44,9 +45,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get 'registered' status ID
+    // Get 'pending' status ID
     const statusResult = await selectQuery<StatusRow>(
-      "SELECT id FROM warranty_statuses WHERE name = 'registered' AND is_deleted = FALSE LIMIT 1"
+      "SELECT id FROM warranty_statuses WHERE name = 'pending' AND is_deleted = FALSE LIMIT 1"
     );
 
     if (statusResult.length === 0) {
@@ -74,13 +75,14 @@ export async function POST(request: NextRequest) {
         purchase_date,
         purchase_from,
         purchase_price,
+        invoice_id,
         invoice_file_url,
         invoice_file_id,
         warranty_card_file_url,
         warranty_card_file_id,
         warranty_status_id,
         registration_date
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
       [
         external_id,
         name,
@@ -92,6 +94,7 @@ export async function POST(request: NextRequest) {
         purchase_date,
         purchase_from,
         purchase_price,
+        invoice_id,
         invoice_file_url,
         invoice_file_id,
         warranty_card_file_url,

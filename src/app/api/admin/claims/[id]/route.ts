@@ -78,6 +78,7 @@ export async function GET(
         w.invoice_file_url,
         w.warranty_card_file_url,
         w.registration_date as warranty_registration_date,
+        w.invoice_id,
         ws.name as warranty_status_name
       FROM claims c
       LEFT JOIN claim_statuses cs ON c.claim_status_id = cs.id

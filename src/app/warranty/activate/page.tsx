@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -92,6 +92,7 @@ export default function WarrantyPage() {
   const [otpLoading, setOtpLoading] = useState(false);
   const [otp, setOtp] = useState("");
   const [countryCode, setCountryCode] = useState("+91");
+  const [otpTimer, setOtpTimer] = useState(0);
 
   // Upload progress state
   const [uploadProgress, setUploadProgress] = useState({
@@ -122,6 +123,7 @@ export default function WarrantyPage() {
     pincode: "",
     purchase_from: "",
     purchase_price: "",
+    invoice_id: "",
   });
 
   const [files, setFiles] = useState({
@@ -283,6 +285,7 @@ export default function WarrantyPage() {
       }
 
       setOtpSent(true);
+      setOtpTimer(30); // Start 30-second countdown
       toast.success(`OTP sent to ${formData.email}`);
     } catch (error) {
       const message =
@@ -292,6 +295,20 @@ export default function WarrantyPage() {
       setOtpLoading(false);
     }
   };
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+
+    if (otpTimer > 0) {
+      interval = setInterval(() => {
+        setOtpTimer((prev) => prev - 1);
+      }, 1000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [otpTimer]);
 
   const handleVerifyOTP = async () => {
     if (!otp || otp.length !== 6) {
@@ -408,6 +425,7 @@ export default function WarrantyPage() {
           purchase_date: formattedDate,
           purchase_from: formData.purchase_from,
           purchase_price: parseFloat(formData.purchase_price).toFixed(2),
+          invoice_id: formData.invoice_id,
           invoice_file_url: invoiceUpload.url,
           invoice_file_id: invoiceUpload.fileId,
           warranty_card_file_url: warrantyUpload.url,
@@ -440,36 +458,40 @@ export default function WarrantyPage() {
       <div className="flex min-h-screen items-start justify-center p-3 sm:p-4">
         <Card className="max-w-md bg-primary/5 w-full mt-10">
           <CardHeader className="text-center space-y-3 sm:space-y-4 p-4 sm:p-6">
-            <div className="mx-auto w-14 h-14 sm:w-16 sm:h-16 bg-green-600 rounded-full flex items-center justify-center">
+            <div className="mx-auto w-14 h-14 sm:w-16 sm:h-16 bg-orange-500 rounded-full flex items-center justify-center">
               <CheckCircle className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
             </div>
             <CardTitle className="text-xl sm:text-2xl font-semibold">
-              Activation Successful!
+              Registration Submitted!
             </CardTitle>
             <CardDescription className="text-sm sm:text-base">
-              Your warranty has been registered with IKIGAI Travel Gear
+              Your warranty registration is under review
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6 pt-0">
             <div className="bg-orange-50 p-3 sm:p-4 rounded-md border border-orange-200 text-center">
               <p className="text-xs sm:text-sm text-gray-600 mb-1">
-                Your Warranty ID
+                Your Registration ID
               </p>
               <p className="text-xl sm:text-2xl font-bold text-primary break-all">
                 {warrantyId}
               </p>
             </div>
+
             <div className="bg-blue-50 p-2.5 sm:p-3 rounded-md border border-blue-200">
               <p className="text-xs sm:text-sm text-blue-800 text-center">
-                A confirmation email has been sent to <br />
-                <strong className="break-all">{formData.email}</strong>
+                Your warranty registration is <strong>pending approval</strong>.
+                You will receive a confirmation email at <br />
+                <strong className="break-all">{formData.email}</strong> once
+                approved.
               </p>
             </div>
+
             <Button
               onClick={() => window.location.reload()}
               className="w-full bg-primary hover:bg-primary/80 text-white h-9 sm:h-10 text-sm sm:text-base"
             >
-              Activate Another Warranty
+              Submit Another Registration
             </Button>
           </CardContent>
         </Card>
@@ -505,7 +527,7 @@ export default function WarrantyPage() {
                     required
                     value={formData.name}
                     onChange={handleInputChange}
-                     disabled={loading}
+                    disabled={loading}
                     placeholder="John Doe"
                     className="mt-1 h-9 sm:h-10 text-sm sm:text-base"
                   />
@@ -517,8 +539,11 @@ export default function WarrantyPage() {
                     Mobile Number <span className="text-red-500">*</span>
                   </Label>
                   <div className="flex gap-2 mt-1">
-                   
-                    <Select value={countryCode} onValueChange={setCountryCode} disabled={loading}>
+                    <Select
+                      value={countryCode}
+                      onValueChange={setCountryCode}
+                      disabled={loading}
+                    >
                       <SelectTrigger className="w-auto h-auto text-xs sm:text-sm">
                         <SelectValue />
                       </SelectTrigger>
@@ -539,7 +564,7 @@ export default function WarrantyPage() {
                       onChange={handleMobileChange}
                       placeholder="9876543210"
                       maxLength={10}
-                    disabled={loading}
+                      disabled={loading}
                       className="h-9 sm:h-10 flex-1 text-sm sm:text-base"
                     />
                   </div>
@@ -662,9 +687,32 @@ export default function WarrantyPage() {
                         )}
                       </Button>
                     </div>
-                    <p className="text-xs sm:text-sm text-gray-600 mt-2">
-                      OTP sent to {formData.email}. Valid for 10 minutes.
-                    </p>
+
+                    {/* OTP Info and Resend Button */}
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-2">
+                      <p className="text-xs sm:text-sm text-gray-600">
+                        OTP sent to {formData.email}. Valid for 10 minutes.
+                      </p>
+
+                      {otpTimer > 0 ? (
+                        <p className="text-xs sm:text-sm text-gray-500">
+                          Resend in{" "}
+                          <span className="font-semibold text-primary">
+                            {otpTimer}s
+                          </span>
+                        </p>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="link"
+                          onClick={handleSendOTP}
+                          disabled={otpLoading}
+                          className="text-xs sm:text-sm text-primary hover:text-primary/80 p-0 h-auto font-medium"
+                        >
+                          {otpLoading ? "Sending..." : "Resend OTP"}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -725,13 +773,10 @@ export default function WarrantyPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 {/* Purchase Date */}
                 <div>
-                  <Label
-                    htmlFor="purchase-date"
-                    className="text-xs sm:text-sm"
-                  >
+                  <Label htmlFor="purchase-date" className="text-xs sm:text-sm">
                     Purchase Date <span className="text-red-500">*</span>
                   </Label>
                   <div className="relative mt-1">
@@ -816,12 +861,27 @@ export default function WarrantyPage() {
                   />
                 </div>
 
+                {/* Purchase invoice Id */}
+                <div>
+                  <Label htmlFor="invoice_id" className="text-xs sm:text-sm">
+                    Invoice ID/Number <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="invoice_id"
+                    name="invoice_id"
+                    type="text"
+                    required
+                    disabled={loading}
+                    value={formData.invoice_id}
+                    onChange={handleInputChange}
+                    placeholder="00123456"
+                    className="mt-1 h-9 sm:h-10 text-sm sm:text-base"
+                  />
+                </div>
+
                 {/* Purchase From */}
                 <div>
-                  <Label
-                    htmlFor="purchase_from"
-                    className="text-xs sm:text-sm"
-                  >
+                  <Label htmlFor="purchase_from" className="text-xs sm:text-sm">
                     Purchase From <span className="text-red-500">*</span>
                   </Label>
                   <Select
@@ -894,7 +954,6 @@ export default function WarrantyPage() {
                           type="button"
                           variant="outline"
                           size="sm"
-                         
                           className="flex-1 h-7 sm:h-8 text-xs"
                           onClick={() => handleViewFile("invoice_file")}
                         >
@@ -952,8 +1011,7 @@ export default function WarrantyPage() {
                   ) : (
                     <div className="mt-1 bg-gray-50 border border-gray-300 rounded-md p-3 sm:p-4 flex flex-col gap-2">
                       <div className="flex items-center gap-2">
-                        {files.warranty_card_file.type ===
-                        "application/pdf" ? (
+                        {files.warranty_card_file.type === "application/pdf" ? (
                           <FileText className="w-4 h-4 text-primary shrink-0" />
                         ) : (
                           <ImageIcon className="w-4 h-4 text-primary shrink-0" />
@@ -972,7 +1030,6 @@ export default function WarrantyPage() {
                           type="button"
                           variant="outline"
                           size="sm"
-                       
                           className="flex-1 h-7 sm:h-8 text-xs"
                           onClick={() => handleViewFile("warranty_card_file")}
                         >
@@ -985,9 +1042,7 @@ export default function WarrantyPage() {
                           size="sm"
                           className="flex-1 h-7 sm:h-8 text-xs"
                           disabled={loading}
-                          onClick={() =>
-                            handleRemoveFile("warranty_card_file")
-                          }
+                          onClick={() => handleRemoveFile("warranty_card_file")}
                         >
                           <X className="w-3 h-3 mr-1" />
                           Remove

@@ -38,6 +38,7 @@ import {
   TruckIcon,
   Package,
   History,
+  FileTextIcon,
 } from "lucide-react";
 import { API } from "@/lib/api-endpoints";
 import { toast } from "sonner";
@@ -65,6 +66,7 @@ interface ClaimDetail {
   purchase_date: string;
   purchase_price: number | null;
   purchase_from: string;
+  invoice_id: string;
   invoice_file_url: string | null;
   warranty_card_file_url: string | null;
   warranty_status_name: string | null;
@@ -693,6 +695,18 @@ export default function ClaimDetailPage() {
                   </Label>
                   <p className="text-base text-gray-900 mt-1 capitalize">
                     {claim.purchase_from?.replace(/_/g, " ") || "N/A"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <FileText className="w-4 h-4 text-gray-400 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    Invoice Id
+                  </Label>
+                  <p className="text-base text-gray-900 mt-1 capitalize">
+                    {claim.invoice_id || "N/A"}
                   </p>
                 </div>
               </div>
