@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Admin OTP] Stored for ${normalizedEmail}`);
     
-    sendAdminLoginOTP(email, otp).catch(err => {
+    await sendAdminLoginOTP(email, otp).catch(err => {
       console.error("[Admin OTP] Email failed:", err);
     });
 
