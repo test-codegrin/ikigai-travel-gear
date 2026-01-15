@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/input-otp";
 import { toast } from "sonner";
 import { Loader2, Mail } from "lucide-react";
+import { API } from "@/lib/api-endpoints";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -28,62 +29,52 @@ export default function AdminLoginPage() {
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
 
-  // ✅ Prevent back navigation
+  // ✅ FIXED: Proper API-based auth check (NOT localStorage)
+  const validateAuth = useCallback(async () => {
+    try {
+      const response = await fetch(API.PROFILE, {
+        method: "GET",
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        // ✅ Already logged in - go to dashboard
+        router.push("/admin/dashboard");
+        return;
+      }
+    } catch {
+      // Any error = not authenticated
+    }
+    
+    // ✅ Not authenticated - stay on login
+    setCheckingAuth(false);
+  }, [router]);
+
+  // Prevent back navigation
   useEffect(() => {
     if (typeof window !== "undefined") {
       window.history.pushState(null, "", window.location.href);
-      
       const handlePopState = () => {
         window.history.pushState(null, "", window.location.href);
       };
-      
       window.addEventListener("popstate", handlePopState);
       return () => window.removeEventListener("popstate", handlePopState);
     }
   }, []);
 
-  // ✅ PROPER TOKEN VALIDATION - API check instead of localStorage
-  const validateToken = useCallback(async () => {
-    try {
-      // Check for token in cookies (httpOnly) via API
-      const response = await fetch("/api/admin/validate", {
-        method: "GET",
-        credentials: "include", // Send httpOnly cookies
-      });
-
-      if (response.ok) {
-        // Token is valid, redirect to dashboard
-        router.push("/admin/dashboard");
-        return true;
-      } else {
-        // Token invalid/expired/missing - clear localStorage and stay on login
-        localStorage.removeItem("admin-token");
-        localStorage.removeItem("admin-user");
-        return false;
-      }
-    } catch (error) {
-      // Network error or invalid token - stay on login
-      localStorage.removeItem("admin-token");
-      localStorage.removeItem("admin-user");
-      return false;
-    }
-  }, [router]);
-
-  // ✅ Check authentication on mount
+  // ✅ FIXED: Check real authentication on mount
   useEffect(() => {
-    validateToken().finally(() => {
-      setCheckingAuth(false);
-    });
-  }, [validateToken]);
+    validateAuth();
+  }, [validateAuth]);
 
   const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const response = await fetch("/api/admin/login", {
+      const response = await fetch(API.ADMIN_LOGIN, {
         method: "POST",
-        credentials: "include",
+        credentials: "include", // ✅ Send cookies
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
@@ -97,8 +88,7 @@ export default function AdminLoginPage() {
       toast.success("OTP sent! Check your email.");
       setStep("otp");
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to send OTP";
+      const message = error instanceof Error ? error.message : "Failed to send OTP";
       toast.error(message);
     } finally {
       setLoading(false);
@@ -116,9 +106,9 @@ export default function AdminLoginPage() {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/admin/login", {
+      const response = await fetch(API.ADMIN_LOGIN, {
         method: "PUT",
-        credentials: "include",
+        credentials: "include", // ✅ Send cookies
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, otp }),
       });
@@ -129,12 +119,11 @@ export default function AdminLoginPage() {
         throw new Error(data.error || "Invalid OTP");
       }
 
-      // ✅ SUCCESS - Store ONLY in localStorage for UX (token is in httpOnly cookie)
+      // ✅ Store ONLY admin data (token is in httpOnly cookie)
       localStorage.setItem("admin-user", JSON.stringify(data.admin));
 
       toast.success("Login successful!");
       router.push("/admin/dashboard");
-      router.refresh();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Invalid OTP";
       toast.error(message);
@@ -143,7 +132,6 @@ export default function AdminLoginPage() {
     }
   };
 
-  // ✅ Loading screen during auth check
   if (checkingAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-primary/10">
@@ -183,7 +171,6 @@ export default function AdminLoginPage() {
                   />
                 </div>
               </div>
-
               <Button
                 type="submit"
                 disabled={loading}
@@ -205,47 +192,22 @@ export default function AdminLoginPage() {
                 <Label htmlFor="otp" className="text-sm font-medium">
                   Enter 6-Digit OTP
                 </Label>
-
                 <div className="flex justify-center">
-                  <InputOTP
-                    maxLength={6}
-                    value={otp}
-                    onChange={(value) => setOtp(value)}
-                  >
+                  <InputOTP maxLength={6} value={otp} onChange={(value) => setOtp(value)}>
                     <InputOTPGroup>
-                      <InputOTPSlot
-                        index={0}
-                        className="h-9 w-9 sm:h-10 sm:w-10 text-sm sm:text-base"
-                      />
-                      <InputOTPSlot
-                        index={1}
-                        className="h-9 w-9 sm:h-10 sm:w-10 text-sm sm:text-base"
-                      />
-                      <InputOTPSlot
-                        index={2}
-                        className="h-9 w-9 sm:h-10 sm:w-10 text-sm sm:text-base"
-                      />
-                      <InputOTPSlot
-                        index={3}
-                        className="h-9 w-9 sm:h-10 sm:w-10 text-sm sm:text-base"
-                      />
-                      <InputOTPSlot
-                        index={4}
-                        className="h-9 w-9 sm:h-10 sm:w-10 text-sm sm:text-base"
-                      />
-                      <InputOTPSlot
-                        index={5}
-                        className="h-9 w-9 sm:h-10 sm:w-10 text-sm sm:text-base"
-                      />
+                      <InputOTPSlot index={0} className="h-9 w-9 sm:h-10 sm:w-10 text-sm sm:text-base" />
+                      <InputOTPSlot index={1} className="h-9 w-9 sm:h-10 sm:w-10 text-sm sm:text-base" />
+                      <InputOTPSlot index={2} className="h-9 w-9 sm:h-10 sm:w-10 text-sm sm:text-base" />
+                      <InputOTPSlot index={3} className="h-9 w-9 sm:h-10 sm:w-10 text-sm sm:text-base" />
+                      <InputOTPSlot index={4} className="h-9 w-9 sm:h-10 sm:w-10 text-sm sm:text-base" />
+                      <InputOTPSlot index={5} className="h-9 w-9 sm:h-10 sm:w-10 text-sm sm:text-base" />
                     </InputOTPGroup>
                   </InputOTP>
                 </div>
-
                 <p className="text-xs sm:text-sm text-gray-600 text-center break-all px-2">
                   OTP sent to <strong>{email}</strong>
                 </p>
               </div>
-
               <Button
                 type="submit"
                 disabled={loading || otp.length !== 6}
@@ -260,7 +222,6 @@ export default function AdminLoginPage() {
                   "Verify & Login"
                 )}
               </Button>
-
               <Button
                 type="button"
                 variant="ghost"

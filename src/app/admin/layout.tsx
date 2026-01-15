@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -87,6 +87,7 @@ export default function AdminLayout({
         const data = await response.json();
         setAdmin(data.admin);
       } else {
+        // Unauthorized - redirect to login
         router.replace("/admin/login");
       }
     } catch (error) {
@@ -97,6 +98,28 @@ export default function AdminLayout({
     }
   };
 
+  // ✅ COMPREHENSIVE CLEANUP FUNCTION
+  const clearAllAuthData = useCallback(() => {
+    // 1. Clear localStorage
+    localStorage.removeItem("admin-token");
+    localStorage.removeItem("admin-user");
+    
+    // 2. Clear sessionStorage
+    sessionStorage.clear();
+    
+    // 3. Clear ALL cookies (client-side accessible)
+    if (typeof window !== "undefined") {
+      document.cookie.split(";").forEach((c) => {
+        document.cookie = c
+          .replace(/^ +/, "")
+          .replace(/=.*/, "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/");
+      });
+    }
+    
+    // 4. Clear state
+    setAdmin(null);
+  }, []);
+
   const handleLogoutClick = () => {
     setShowLogoutDialog(true);
   };
@@ -105,7 +128,7 @@ export default function AdminLayout({
     try {
       setLoggingOut(true);
 
-      // Call logout API to clear cookie
+      // 1. Call logout API (server-side cookie cleanup)
       const response = await fetch(API.LOGOUT, {
         method: "POST",
         credentials: "include",
@@ -114,37 +137,43 @@ export default function AdminLayout({
         },
       });
 
-      if (response.ok) {
-        // Clear localStorage
-        if (typeof window !== "undefined") {
-          localStorage.removeItem("admin-token");
-          localStorage.removeItem("admin-user");
-          localStorage.clear();
-          sessionStorage.clear();
-        }
+      // 2. Clear ALL client-side data regardless of API response
+      clearAllAuthData();
 
-        // Clear state
-        setAdmin(null);
-
-        // Show success message
-        toast.success("Logged out successfully");
-
-        // Replace history to prevent back navigation
+      // 3. Prevent back navigation
+      if (typeof window !== "undefined") {
         window.history.pushState(null, "", "/admin/login");
-
-        // Navigate to login
-        router.replace("/admin/login");
-
-        // Force page refresh to clear all state
+        
+        // Block browser back button
+        const handlePopState = () => {
+          window.history.pushState(null, "", "/admin/login");
+        };
+        window.addEventListener("popstate", handlePopState);
+        
+        // Cleanup listener after timeout
         setTimeout(() => {
-          window.location.href = "/admin/login";
-        }, 100);
-      } else {
-        toast.error("Logout failed. Please try again.");
+          window.removeEventListener("popstate", handlePopState);
+        }, 1000);
       }
+
+      toast.success("Logged out successfully");
+
+      // 4. Force complete redirect
+      router.replace("/admin/login");
+      router.refresh();
+
+      // 5. Hard redirect as final fallback
+      setTimeout(() => {
+        window.location.href = "/admin/login";
+      }, 100);
+
     } catch (error) {
       console.error("Logout error:", error);
-      toast.error("Logout failed. Please try again.");
+      
+      // Even on error, clear client-side data
+      clearAllAuthData();
+      toast.error("Logged out (manual cleanup)");
+      router.replace("/admin/login");
     } finally {
       setLoggingOut(false);
       setShowLogoutDialog(false);
@@ -160,9 +189,21 @@ export default function AdminLayout({
       .slice(0, 2);
   };
 
-  // Skip layout rendering for login page
+  // Skip layout for login page
   if (pathname === "/admin/login") {
     return <>{children}</>;
+  }
+
+  // Show loading state while checking auth
+  if (loadingAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-sm text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -244,11 +285,7 @@ export default function AdminLayout({
 
           {/* Admin Profile Dropdown */}
           <div className="flex items-center gap-3">
-            {loadingAdmin ? (
-              <div className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-full bg-gray-200 animate-pulse"></div>
-              </div>
-            ) : admin ? (
+            {admin ? (
               <>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -298,7 +335,7 @@ export default function AdminLayout({
               </>
             ) : (
               <div className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-full bg-gray-300"></div>
+                <div className="w-9 h-9 rounded-full bg-gray-300 animate-pulse"></div>
               </div>
             )}
           </div>
@@ -314,8 +351,8 @@ export default function AdminLayout({
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Logout</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to log out? You&apos;ll need to log in
-              again to access the admin panel.
+              Are you sure you want to log out? You&apos;ll need to log in again
+              to access the admin panel.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
