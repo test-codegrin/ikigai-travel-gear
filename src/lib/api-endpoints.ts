@@ -10,4 +10,5 @@ export const API = {
     WARRANTY_STATUSES: "/api/admin/warranty-statuses",
     ACTIVATE_WARRANTY: "/api/warranty/activate",
     CLAIM_WARRANTY: "/api/warranty/claim",
+    ADMIN_LOGIN: "/api/admin/login",
 }

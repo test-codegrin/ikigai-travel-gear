@@ -92,25 +92,97 @@ export default function AdminDashboardPage() {
   const fetchDashboardData = async () => {
     try {
       const response = await fetch(API.DASHBOARD, {
+        method: "GET",
         credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
       });
 
+      // ✅ Comprehensive unauthorized detection
       if (!response.ok) {
+        if (
+          response.status === 401 ||
+          response.status === 403 ||
+          response.statusText === "Unauthorized" ||
+          response.statusText.toLowerCase().includes("token") ||
+          response.statusText.toLowerCase().includes("unauthorized")
+        ) {
+          // Clear cookies
+          document.cookie.split(";").forEach((c) => {
+            document.cookie = c
+              .replace(/^ +/, "")
+              .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+          });
+          
+          router.push("/admin/login");
+          router.refresh();
+          return;
+        }
+        
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      // ✅ Validate response structure
+      if (!data || typeof data !== "object") {
+        console.error("Invalid dashboard response structure");
         router.push("/admin/login");
         return;
       }
 
-      const data = await response.json();
+      if (!data.warranties || !data.stats) {
+        console.error("Missing required dashboard data");
+        router.push("/admin/login");
+        return;
+      }
+
       setWarranties(data.warranties);
       setStats(data.stats);
       setTopCities(data.topCities || []);
       setRecentClaims(data.recentClaims || []);
+      
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error);
+      
+      if (error instanceof Error) {
+        const errorMessage = error.message.toLowerCase();
+        if (
+          errorMessage.includes("401") ||
+          errorMessage.includes("unauthorized") ||
+          errorMessage.includes("token") ||
+          errorMessage.includes("network")
+        ) {
+          router.push("/admin/login");
+          return;
+        }
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  // ✅ Extra auth check on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await fetch(API.DASHBOARD, {
+          method: "HEAD",
+          credentials: "include",
+        });
+
+        if (!response.ok || response.status === 401) {
+          router.push("/admin/login");
+        }
+      } catch {
+        // Silently fail - main fetch will handle
+      }
+    };
+
+    checkAuth();
+  }, [router]);
 
   if (loading) {
     return (
@@ -123,13 +195,12 @@ export default function AdminDashboardPage() {
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case "registered":
+      case "approved":
         return "bg-green-100 text-green-800 border-green-200";
       case "claimed":
         return "bg-orange-100 text-orange-800 border-orange-200";
       case "under_review":
         return "bg-blue-100 text-blue-800 border-blue-200";
-      case "approved":
-        return "bg-green-100 text-green-800 border-green-200";
       case "rejected":
         return "bg-red-100 text-red-800 border-red-200";
       case "completed":
@@ -139,12 +210,8 @@ export default function AdminDashboardPage() {
     }
   };
 
-
-
   return (
     <div className="space-y-6">
-     
-
       {/* Primary Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Warranties */}
@@ -242,7 +309,6 @@ export default function AdminDashboardPage() {
 
       {/* Secondary Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Approved Claims This Month */}
         <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-gray-600">
@@ -258,7 +324,6 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Pending Claims */}
         <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-gray-600">
@@ -274,7 +339,6 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Claim Rate */}
         <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-gray-600">
@@ -289,9 +353,7 @@ export default function AdminDashboardPage() {
                 : 0}
               %
             </div>
-            <p className="text-xs text-gray-500 mt-1">
-              Of total warranties
-            </p>
+            <p className="text-xs text-gray-500 mt-1">Of total warranties</p>
           </CardContent>
         </Card>
       </div>
@@ -388,7 +450,7 @@ export default function AdminDashboardPage() {
                         {claim.claim_external_id}
                       </p>
                       <p className="text-xs text-gray-400 mt-1">
-                        {convertToIST(claim.claim_register_date,false)}
+                        {convertToIST(claim.claim_register_date, false)}
                       </p>
                     </div>
                     <Badge
@@ -497,11 +559,11 @@ export default function AdminDashboardPage() {
                               warranty.status_name
                             )} capitalize`}
                           >
-                            {warranty.status_name}
+                            {warranty.status_name.replace(/_/g, " ")}
                           </Badge>
                         </td>
                         <td className="py-3 px-4 text-sm text-gray-600">
-                          {convertToIST(warranty.registration_date,false)}
+                          {convertToIST(warranty.registration_date, false)}
                         </td>
                         <td className="py-3 px-4">
                           <Button

@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
 
     // Get 'pending' status ID
     const statusResult = await selectQuery<StatusRow>(
-      "SELECT id FROM warranty_statuses WHERE name = 'pending' AND is_deleted = FALSE LIMIT 1"
+      "SELECT id FROM warranty_statuses WHERE name = 'registered' AND is_deleted = FALSE LIMIT 1"
     );
 
     if (statusResult.length === 0) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,9 +28,8 @@ export default function AdminLoginPage() {
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
 
-  // Prevent back navigation after logout
+  // ✅ Prevent back navigation
   useEffect(() => {
-    // Replace state to prevent back navigation
     if (typeof window !== "undefined") {
       window.history.pushState(null, "", window.location.href);
       
@@ -39,29 +38,43 @@ export default function AdminLoginPage() {
       };
       
       window.addEventListener("popstate", handlePopState);
-      
-      return () => {
-        window.removeEventListener("popstate", handlePopState);
-      };
+      return () => window.removeEventListener("popstate", handlePopState);
     }
   }, []);
-  // Check if admin is already logged in using localStorage
-  useEffect(() => {
-    const checkAuthentication = () => {
-      // Check for admin-token in localStorage
-      const adminToken = localStorage.getItem("admin-token");
 
-      if (adminToken) {
-        // Admin is already logged in, redirect to dashboard
+  // ✅ PROPER TOKEN VALIDATION - API check instead of localStorage
+  const validateToken = useCallback(async () => {
+    try {
+      // Check for token in cookies (httpOnly) via API
+      const response = await fetch("/api/admin/validate", {
+        method: "GET",
+        credentials: "include", // Send httpOnly cookies
+      });
+
+      if (response.ok) {
+        // Token is valid, redirect to dashboard
         router.push("/admin/dashboard");
+        return true;
       } else {
-        setCheckingAuth(false);
+        // Token invalid/expired/missing - clear localStorage and stay on login
+        localStorage.removeItem("admin-token");
+        localStorage.removeItem("admin-user");
+        return false;
       }
-    };
-
-    checkAuthentication();
+    } catch (error) {
+      // Network error or invalid token - stay on login
+      localStorage.removeItem("admin-token");
+      localStorage.removeItem("admin-user");
+      return false;
+    }
   }, [router]);
 
+  // ✅ Check authentication on mount
+  useEffect(() => {
+    validateToken().finally(() => {
+      setCheckingAuth(false);
+    });
+  }, [validateToken]);
 
   const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,6 +83,7 @@ export default function AdminLoginPage() {
     try {
       const response = await fetch("/api/admin/login", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
@@ -104,6 +118,7 @@ export default function AdminLoginPage() {
     try {
       const response = await fetch("/api/admin/login", {
         method: "PUT",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, otp }),
       });
@@ -114,8 +129,7 @@ export default function AdminLoginPage() {
         throw new Error(data.error || "Invalid OTP");
       }
 
-      // Store token and admin data in localStorage
-      localStorage.setItem("admin-token", data.token);
+      // ✅ SUCCESS - Store ONLY in localStorage for UX (token is in httpOnly cookie)
       localStorage.setItem("admin-user", JSON.stringify(data.admin));
 
       toast.success("Login successful!");
@@ -129,7 +143,7 @@ export default function AdminLoginPage() {
     }
   };
 
-  // Show loading screen while checking authentication
+  // ✅ Loading screen during auth check
   if (checkingAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-primary/10">

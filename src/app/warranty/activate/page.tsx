@@ -458,14 +458,14 @@ export default function WarrantyPage() {
       <div className="flex min-h-screen items-start justify-center p-3 sm:p-4">
         <Card className="max-w-md bg-primary/5 w-full mt-10">
           <CardHeader className="text-center space-y-3 sm:space-y-4 p-4 sm:p-6">
-            <div className="mx-auto w-14 h-14 sm:w-16 sm:h-16 bg-orange-500 rounded-full flex items-center justify-center">
+            <div className="mx-auto w-14 h-14 sm:w-16 sm:h-16 bg-green-500 rounded-full flex items-center justify-center">
               <CheckCircle className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
             </div>
             <CardTitle className="text-xl sm:text-2xl font-semibold">
-              Registration Submitted!
+              Registration Successful!
             </CardTitle>
             <CardDescription className="text-sm sm:text-base">
-              Your warranty registration is under review
+              Your warranty registration is successfully submitted.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6 pt-0">
@@ -480,10 +480,8 @@ export default function WarrantyPage() {
 
             <div className="bg-blue-50 p-2.5 sm:p-3 rounded-md border border-blue-200">
               <p className="text-xs sm:text-sm text-blue-800 text-center">
-                Your warranty registration is <strong>pending approval</strong>.
-                You will receive a confirmation email at <br />
-                <strong className="break-all">{formData.email}</strong> once
-                approved.
+                Your warranty registration is <strong>activated</strong>.
+                Note above Registration ID for future reference.
               </p>
             </div>
 

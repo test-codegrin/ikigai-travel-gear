@@ -235,7 +235,7 @@ export async function sendWarrantyConfirmation(
   const mailOptions = {
     from: process.env.EMAIL_FROM,
     to: email,
-    subject: "Warranty Registration Received - IKIGAI Travel Gear",
+    subject: "Warranty Activated - IKIGAI Travel Gear",
     html: `
      <div style="margin:0; padding:0; background-color:#f5f5f5;">
   <style>
@@ -276,32 +276,32 @@ export async function sendWarrantyConfirmation(
           <tr>
             <td style="padding:0 24px 24px 24px; font-family:'Mulish', Arial, sans-serif;">
               <p style="margin:0 0 20px 0; font-size:15px; line-height:1.6; color:#000000; font-family:'Mulish', Arial, sans-serif;">
-                Thank you for submitting your warranty registration with Ikigai Travel Gear. Your registration is currently <strong>under review</strong>.
+                Congratulations! Your warranty registration with Ikigai Travel Gear has been <strong>successfully activated</strong>.
               </p>
 
-              <!-- Registration ID Box (Orange for Pending) -->
-              <table cellpadding="0" cellspacing="0" role="presentation" style="margin-top:20px; background-color:#fff7ed; border-radius:6px; border:2px solid #f29559; width:100%; font-family:'Mulish', Arial, sans-serif;">
+              <!-- Registration ID Box (Green for Approved) -->
+              <table cellpadding="0" cellspacing="0" role="presentation" style="margin-top:20px; background-color:#f0fdf4; border-radius:6px; border:2px solid #22c55e; width:100%; font-family:'Mulish', Arial, sans-serif;">
                 <tr>
                   <td style="padding:16px 20px;">
                     <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
                       <tr>
                         <td style="padding-bottom:8px;">
                           <span style="font-size:13px; color:#000000; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; font-family:'Mulish', Arial, sans-serif;">
-                            Registration ID
+                            Warranty ID
                           </span>
                         </td>
                       </tr>
                       <tr>
                         <td>
-                          <span style="font-size:20px; color:#f29559; font-weight:700; letter-spacing:0.5px; font-family:'Mulish', Arial, sans-serif;">
+                          <span style="font-size:20px; color:#16a34a; font-weight:700; letter-spacing:0.5px; font-family:'Mulish', Arial, sans-serif;">
                             ${externalId}
                           </span>
                         </td>
                       </tr>
                       <tr>
                         <td style="padding-top:8px;">
-                          <span style="display:inline-block; padding:4px 12px; background-color:#f29559; color:#ffffff; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; border-radius:4px; font-family:'Mulish', Arial, sans-serif;">
-                            PENDING APPROVAL
+                          <span style="display:inline-block; padding:4px 12px; background-color:#22c55e; color:#ffffff; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; border-radius:4px; font-family:'Mulish', Arial, sans-serif;">
+                            ✓ ACTIVE
                           </span>
                         </td>
                       </tr>
@@ -311,24 +311,24 @@ export async function sendWarrantyConfirmation(
               </table>
 
               <p style="margin:20px 0 0 0; font-size:13px; line-height:1.5; color:#000000; font-family:'Mulish', Arial, sans-serif;">
-                Please save this registration ID for your records. Our team will review your submission, and you will receive a confirmation email once your warranty is approved and activated.
+                Please save this warranty ID for your records. Your 3-year warranty coverage is now active and protects your product.
               </p>
 
-              <!-- What's Next Section -->
+              <!-- Coverage Details Section -->
               <table cellpadding="0" cellspacing="0" role="presentation" style="margin-top:20px; background-color:#f0f9ff; border-radius:6px; border:1px solid #bae6fd; width:100%; font-family:'Mulish', Arial, sans-serif;">
                 <tr>
                   <td style="padding:16px 20px;">
                     <p style="margin:0 0 8px 0; font-size:14px; color:#0c4a6e; font-weight:600; font-family:'Mulish', Arial, sans-serif;">
-                      What's Next?
+                      Your Warranty Coverage
                     </p>
                     <p style="margin:0; font-size:13px; line-height:1.6; color:#0c4a6e; font-family:'Mulish', Arial, sans-serif;">
-                      • Our team will review your warranty registration<br/>
-                      • You'll receive an email once approved (typically within 2-3 business days)<br/>
-                      • Your 3-year warranty coverage will begin upon approval
+                      • Coverage Period: 3 years from purchase date<br/>
+                      • Use your Warranty ID for any future claims
                     </p>
                   </td>
                 </tr>
               </table>
+
             </td>
           </tr>
 
@@ -355,8 +355,8 @@ export async function sendWarrantyConfirmation(
           <tr>
             <td style="padding:20px 24px; background-color:#f5f5f5; font-family:'Mulish', Arial, sans-serif;">
               <p style="margin:0; font-size:12px; line-height:1.5; color:#666666; text-align:center; font-family:'Mulish', Arial, sans-serif;">
-                This email was sent regarding your warranty registration with Ikigai Travel Gear.<br/>
-                If you did not perform this action, please contact our support team immediately.
+                This email confirms your warranty activation with Ikigai Travel Gear.<br/>
+                If you did not register for this warranty, please contact our support team immediately.
               </p>
             </td>
           </tr>
@@ -371,6 +371,7 @@ export async function sendWarrantyConfirmation(
 
   await transporter.sendMail(mailOptions);
 }
+
 
 
 export async function sendWarrantyStatusUpdate(
