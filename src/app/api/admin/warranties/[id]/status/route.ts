@@ -96,7 +96,7 @@ export async function PUT(
 
     // Send status update email to customer
     try {
-      const statusName = updatedWarranty.status_name || "Updated";
+     const statusName = (updatedWarranty.status_name as "pending" | "registered" | "claimed" | "replaced" | "rejected" | "expired") || "registered";
       const statusMessage =
         STATUS_MESSAGES[statusName.toLowerCase()] ||
         "Your warranty status has been updated. Please check your warranty details for more information.";
@@ -105,8 +105,7 @@ export async function PUT(
         updatedWarranty.customer_email,
         updatedWarranty.customer_name,
         updatedWarranty.external_id,
-        statusName,
-        statusMessage
+        statusName
       );
     } catch (emailError) {
       console.error("Failed to send status update email:", emailError);
