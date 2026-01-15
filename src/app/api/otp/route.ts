@@ -30,6 +30,50 @@ const ENCRYPTION_KEY = Buffer.from(
   "hex"
 );
 
+// ✅ NEW: Timezone offset calculator (hours from UTC)
+function getServerOffsetHours(): number {
+  const serverTimezone = process.env.SERVER_TIMEZONE?.toUpperCase();
+  
+  const timezoneOffsets: Record<string, number> = {
+    'IST': 5.5,    // UTC+5:30
+    'MST': -7,     // UTC-7 (Mountain Standard Time)
+    'MDT': -6,     // UTC-6 (Mountain Daylight Time)
+    'PST': -8,     // UTC-8
+    'PDT': -7,     // UTC-7
+    'EST': -5,     // UTC-5
+    'EDT': -4,     // UTC-4
+    'UTC': 0,
+    'GMT': 0
+  };
+
+  return timezoneOffsets[serverTimezone ?? 'UTC'] ?? 0;
+}
+
+// ✅ FIXED: Always store UTC in DB
+function toMySQLDateTimeUTC(date: Date): string {
+  return date.toISOString().slice(0, 19).replace('T', ' '); // Always UTC
+}
+
+// ✅ FIXED: Calculate expiration with server timezone offset
+function calculateExpiryTime(): Date {
+  const offsetHours = getServerOffsetHours();
+  const nowServerTime = new Date(); // Server's local time
+  const nowUTC = new Date(nowServerTime.getTime() - (offsetHours * 60 * 60 * 1000)); // Convert to UTC
+  
+  // Add 10 minutes to server time (UTC normalized)
+  return new Date(nowUTC.getTime() + 10 * 60 * 1000);
+}
+
+// ✅ NEW: Check expiry considering server timezone
+function isOTPExpired(serverExpiresAt: string): boolean {
+  const offsetHours = getServerOffsetHours();
+  const nowServerTime = new Date();
+  const nowUTC = new Date(nowServerTime.getTime() - (offsetHours * 60 * 60 * 1000));
+  const expiresUTC = new Date(serverExpiresAt + 'Z'); // Assume DB stores UTC
+  
+  return nowUTC > expiresUTC;
+}
+
 // Generate 6-digit OTP
 function generateOTP(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -94,7 +138,7 @@ export async function POST(request: NextRequest) {
     if (!action || action === "send") {
       const generatedOtp = generateOTP();
       const { encrypted, iv, tag } = encryptOTP(generatedOtp);
-      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+      const expiresAtUTC = calculateExpiryTime(); // ✅ Server timezone aware
 
       // Delete existing OTPs
       await connection.execute<ResultSetHeader>(
@@ -102,15 +146,15 @@ export async function POST(request: NextRequest) {
         [normalizedEmail]
       );
 
-      // Insert new encrypted OTP
+      // Insert new encrypted OTP (UTC)
       await connection.execute<ResultSetHeader>(
         `INSERT INTO otp_verifications (id, email, encrypted_otp, iv, tag, expires_at, created_at) 
          VALUES (UUID(), ?, ?, ?, ?, ?, NOW())`,
-        [normalizedEmail, encrypted, iv, tag, expiresAt]
+        [normalizedEmail, encrypted, iv, tag, toMySQLDateTimeUTC(expiresAtUTC)]
       );
 
-      console.log(`[OTP] Stored encrypted OTP for ${normalizedEmail} (expires: ${expiresAt.toISOString()})`);
-
+      console.log(`[Warranty OTP] Stored for ${normalizedEmail}, expires: ${toMySQLDateTimeUTC(expiresAtUTC)}, server_tz: ${process.env.SERVER_TIMEZONE}`);
+      
       await sendWarrantyOTP(email as string, generatedOtp);
 
       return NextResponse.json(
@@ -136,7 +180,7 @@ export async function POST(request: NextRequest) {
 
       const otpRecord = rows[0] as OtpRecord | undefined;
 
-      console.log(`[OTP] Verification attempt for ${normalizedEmail}`);
+      console.log(`[Warranty OTP] Verification attempt for ${normalizedEmail}, server_tz: ${process.env.SERVER_TIMEZONE}`);
 
       if (!otpRecord) {
         return NextResponse.json(
@@ -145,16 +189,13 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Check expiry
-      const now = new Date();
-      const expiresAt = new Date(otpRecord.expires_at);
-      
-      if (now > expiresAt) {
+      // ✅ FIXED: Proper timezone-aware expiry check
+      if (isOTPExpired(otpRecord.expires_at)) {
         await connection!.execute<ResultSetHeader>(
           'DELETE FROM otp_verifications WHERE id = ?',
           [otpRecord.id]
         );
-        console.log(`[OTP] Expired for ${normalizedEmail}`);
+        console.log(`[Warranty OTP] Expired for ${normalizedEmail}`);
         return NextResponse.json(
           { error: "OTP has expired. Please request a new one." },
           { status: 400 }
@@ -174,14 +215,14 @@ export async function POST(request: NextRequest) {
           'DELETE FROM otp_verifications WHERE id = ?',
           [otpRecord.id]
         );
-        console.log(`[OTP] Successfully verified for ${normalizedEmail}`);
+        console.log(`[Warranty OTP] Successfully verified for ${normalizedEmail}`);
         return NextResponse.json(
           { message: "Email verified successfully!" },
           { status: 200 }
         );
       }
 
-      console.log(`[OTP] Invalid OTP for ${normalizedEmail}`);
+      console.log(`[Warranty OTP] Invalid OTP for ${normalizedEmail}`);
       return NextResponse.json(
         { error: "Invalid OTP. Please try again." },
         { status: 400 }
@@ -193,7 +234,7 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   } catch (error) {
-    console.error("OTP API error:", error);
+    console.error("Warranty OTP API error:", error);
     return NextResponse.json(
       { error: "Failed to process OTP request" },
       { status: 500 }

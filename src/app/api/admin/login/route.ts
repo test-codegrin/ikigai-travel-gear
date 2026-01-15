@@ -7,6 +7,25 @@ import crypto from "crypto";
 const ENCRYPTION_KEY = Buffer.from(process.env.OTP_ENCRYPTION_KEY ?? "", "hex");
 const ALGORITHM = "aes-256-gcm";
 
+// ✅ NEW: Timezone offset calculator (hours from UTC)
+function getServerOffsetHours(): number {
+  const serverTimezone = process.env.SERVER_TIMEZONE?.toUpperCase();
+  
+  const timezoneOffsets: Record<string, number> = {
+    'IST': 5.5,    // UTC+5:30
+    'MST': -7,     // UTC-7 (Mountain Standard Time)
+    'MDT': -6,     // UTC-6 (Mountain Daylight Time)
+    'PST': -8,     // UTC-8
+    'PDT': -7,     // UTC-7
+    'EST': -5,     // UTC-5
+    'EDT': -4,     // UTC-4
+    'UTC': 0,
+    'GMT': 0
+  };
+
+  return timezoneOffsets[serverTimezone ?? 'UTC'] ?? 0;
+}
+
 function encryptOTP(otp: string): { encrypted: string; iv: string; tag: string } {
   const iv = crypto.randomBytes(16);
   const cipher = crypto.createCipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
@@ -27,8 +46,29 @@ function decryptOTP(encrypted: string, iv: string, tag: string): string {
   return decrypted;
 }
 
-function toMySQLDateTime(date: Date): string {
-  return date.toISOString().slice(0, 19).replace('T', ' ');
+// ✅ FIXED: Always store UTC in DB, convert client time to UTC
+function toMySQLDateTimeUTC(date: Date): string {
+  return date.toISOString().slice(0, 19).replace('T', ' '); // Always UTC
+}
+
+// ✅ FIXED: Calculate expiration with server timezone offset
+function calculateExpiryTime(): Date {
+  const offsetHours = getServerOffsetHours();
+  const nowServerTime = new Date(); // Server's local time
+  const nowUTC = new Date(nowServerTime.getTime() + (offsetHours * 60 * 60 * 1000));
+  
+  // Add 10 minutes to server time (UTC normalized)
+  return new Date(nowUTC.getTime() + 10 * 60 * 1000);
+}
+
+// ✅ NEW: Check expiry considering server timezone
+function isOTPExpired(serverExpiresAt: string): boolean {
+  const offsetHours = getServerOffsetHours();
+  const nowServerTime = new Date();
+  const nowUTC = new Date(nowServerTime.getTime() + (offsetHours * 60 * 60 * 1000));
+  const expiresUTC = new Date(serverExpiresAt + 'Z'); // Assume DB stores UTC
+  
+  return nowUTC > expiresUTC;
 }
 
 // ✅ POST - Send Admin OTP
@@ -43,7 +83,6 @@ export async function POST(request: NextRequest) {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    // ✅ FIXED: Raw query result + type assertion
     const admins = await selectQuery(
       "SELECT id, email, name FROM admins WHERE email = ? AND is_active = TRUE AND is_deleted = FALSE",
       [normalizedEmail]
@@ -55,17 +94,17 @@ export async function POST(request: NextRequest) {
 
     const otp = generateOTP();
     const { encrypted, iv, tag } = encryptOTP(otp);
-    const expiresAt = toMySQLDateTime(new Date(Date.now() + 10 * 60 * 1000));
+    const expiresAtUTC = calculateExpiryTime(); // ✅ Server timezone aware
 
     await selectQuery('DELETE FROM otp_verifications WHERE email = ?', [normalizedEmail]);
     
     await selectQuery(
       `INSERT INTO otp_verifications (id, email, encrypted_otp, iv, tag, expires_at, created_at) 
        VALUES (UUID(), ?, ?, ?, ?, ?, NOW())`,
-      [normalizedEmail, encrypted, iv, tag, expiresAt]
+      [normalizedEmail, encrypted, iv, tag, toMySQLDateTimeUTC(expiresAtUTC)]
     );
 
-    console.log(`[Admin OTP] Stored for ${normalizedEmail}, expires: ${expiresAt}`);
+    console.log(`[Admin OTP] Stored for ${normalizedEmail}, expires: ${toMySQLDateTimeUTC(expiresAtUTC)}, server_tz: ${process.env.SERVER_TIMEZONE}`);
     
     sendAdminLoginOTP(email, otp).catch(err => {
       console.error("[Admin OTP] Email failed:", err);
@@ -78,7 +117,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// ✅ PUT - Verify Admin OTP (NO TOKEN EXPIRY)
+// ✅ PUT - Verify Admin OTP
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
@@ -91,7 +130,6 @@ export async function PUT(request: NextRequest) {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    // ✅ FIXED: Raw query result + type assertion
     const admins = await selectQuery(
       "SELECT id, email, name FROM admins WHERE email = ? AND is_active = TRUE AND is_deleted = FALSE",
       [normalizedEmail]
@@ -103,7 +141,6 @@ export async function PUT(request: NextRequest) {
 
     const admin = admins[0];
 
-    // ✅ FIXED: Raw query result + type assertion
     const otpRecords = await selectQuery(
       `SELECT * FROM otp_verifications 
        WHERE email = ? 
@@ -117,11 +154,8 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "No OTP found" }, { status: 400 });
     }
 
-    // ✅ UTC expiry check
-    const now = toMySQLDateTime(new Date());
-    const expiresAt = toMySQLDateTime(new Date(otpRecord.expires_at));
-    
-    if (new Date(now) > new Date(expiresAt)) {
+    // ✅ FIXED: Proper timezone-aware expiry check
+    if (isOTPExpired(otpRecord.expires_at)) {
       await selectQuery('DELETE FROM otp_verifications WHERE id = ?', [otpRecord.id]);
       return NextResponse.json({ error: "OTP expired" }, { status: 400 });
     }
@@ -129,7 +163,7 @@ export async function PUT(request: NextRequest) {
     // ✅ Decrypt & verify
     const decryptedOtp = decryptOTP(otpRecord.encrypted_otp, otpRecord.iv, otpRecord.tag);
     
-    console.log(`[Admin OTP] Verify: input=${otp.trim()}, decrypted=${decryptedOtp}`);
+    console.log(`[Admin OTP] Verify: input=${otp.trim()}, decrypted=${decryptedOtp}, server_tz: ${process.env.SERVER_TIMEZONE}`);
 
     if (decryptedOtp !== otp.trim()) {
       return NextResponse.json({ error: "Invalid OTP" }, { status: 400 });
@@ -151,13 +185,12 @@ export async function PUT(request: NextRequest) {
       admin: { id: admin.id, email: admin.email, name: admin.name }
     });
 
-    // ✅ NO maxAge = Permanent cookie (until logout/browser delete)
+    // ✅ NO maxAge = Permanent cookie
     response.cookies.set("admin-token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/"
-      // ✅ REMOVED: maxAge - token never expires automatically
     });
 
     return response;
